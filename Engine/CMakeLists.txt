@@ -1,0 +1,10 @@
+﻿set(ENGINE_ROOT_DIR "${MWENGINE_ROOT_DIR}/Engine")
+set(THIRD_PARTY_DIR "${ENGINE_ROOT_DIR}/3rd")
+
+add_subdirectory(Source/Editor)
+add_subdirectory(Source/Runtime)
+add_subdirectory(3rdparty)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    add_compile_options("/MP")
+    set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT MWEditor)
+endif()
