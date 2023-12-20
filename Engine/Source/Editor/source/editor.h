@@ -5,6 +5,7 @@
 #include <vector>
 
 namespace MW {
+    class MWEngine;
     class MWEditor {
     public:
         MWEditor() {};
@@ -20,6 +21,6 @@ namespace MW {
         void clear();
         void initialize();
     private:
-        void test();
+        std::shared_ptr<MWEngine> engine;
     };
 }

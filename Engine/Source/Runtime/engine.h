@@ -5,7 +5,7 @@ namespace MW
 {
     class MWEngine
     {
-        friend class PiccoloEditor;
+        friend class MWEditor;
 
     public:
         MWEngine() {};
