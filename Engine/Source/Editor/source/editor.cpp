@@ -1,8 +1,8 @@
 #include "editor.h"
 #include "editorGlobalContext.h"
-#include "Runtime/function/global/engineGlobalContext.h"
-#include "Runtime/engine.h"
-#include "Runtime/function/render/windowSystem.h"
+#include "runtime/function/global/engine_global_context.h"
+#include "runtime/engine.h"
+#include "runtime/function/render/window_system.h"
 #include <chrono>
 namespace MW {
 	float calculateDeltaTime()

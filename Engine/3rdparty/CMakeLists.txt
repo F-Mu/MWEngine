@@ -34,3 +34,8 @@ if(NOT TARGET tinyobjloader)
     set_target_properties(tinyobjloader PROPERTIES FOLDER ${third_party_folder}/tinyobjloader)
     set_target_properties(uninstall PROPERTIES FOLDER ${third_party_folder}/tinyobjloader)
 endif()
+
+if(NOT TARGET glm)
+    add_subdirectory(glm)
+    set_target_properties(stb PROPERTIES FOLDER ${third_party_folder}/glm)
+endif()
