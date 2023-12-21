@@ -1,17 +1,15 @@
 #pragma once
 
 #include <memory>
-#include <glm/glm.h>
-#include "render/render_device.h"
-#include "render/render_buffer.h"
+#include <glm/glm.hpp>
 #include "component.h"
 #include "core/vertex.h"
-#include "render/render_model.h"
-
+#include "function/render/render_mesh.h"
 namespace MW {
     class RenderComponent : public Component {
     public:
-        explicit RenderComponent(const std::weak_ptr<GameObject> &parent,const std::string &type);
+        explicit RenderComponent(const std::weak_ptr<GameObject> &parent,const std::string &type):
+            Component(parent, type) {}
 
         ~RenderComponent();
 
@@ -19,6 +17,6 @@ namespace MW {
 
         void tick() override;
     private:
-        std::shared_ptr<Model> model{};
+        std::shared_ptr<RenderMesh>mesh;
     };
 }

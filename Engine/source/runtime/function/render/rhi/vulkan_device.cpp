@@ -1,5 +1,6 @@
 #include "vulkan_device.h"
 #include "runtime/function/render/window_system.h"
+#include "core/macro.h"
 // std headers
 #include <cstring>
 #include <iostream>
@@ -7,7 +8,48 @@
 #include <unordered_set>
 
 namespace MW {
-
+    std::string errorString(VkResult errorCode)
+    {
+        switch (errorCode)
+        {
+#define STR(r) case VK_ ##r: return #r
+            STR(NOT_READY);
+            STR(TIMEOUT);
+            STR(EVENT_SET);
+            STR(EVENT_RESET);
+            STR(INCOMPLETE);
+            STR(ERROR_OUT_OF_HOST_MEMORY);
+            STR(ERROR_OUT_OF_DEVICE_MEMORY);
+            STR(ERROR_INITIALIZATION_FAILED);
+            STR(ERROR_DEVICE_LOST);
+            STR(ERROR_MEMORY_MAP_FAILED);
+            STR(ERROR_LAYER_NOT_PRESENT);
+            STR(ERROR_EXTENSION_NOT_PRESENT);
+            STR(ERROR_FEATURE_NOT_PRESENT);
+            STR(ERROR_INCOMPATIBLE_DRIVER);
+            STR(ERROR_TOO_MANY_OBJECTS);
+            STR(ERROR_FORMAT_NOT_SUPPORTED);
+            STR(ERROR_SURFACE_LOST_KHR);
+            STR(ERROR_NATIVE_WINDOW_IN_USE_KHR);
+            STR(SUBOPTIMAL_KHR);
+            STR(ERROR_OUT_OF_DATE_KHR);
+            STR(ERROR_INCOMPATIBLE_DISPLAY_KHR);
+            STR(ERROR_VALIDATION_FAILED_EXT);
+            STR(ERROR_INVALID_SHADER_NV);
+#undef STR
+        default:
+            return "UNKNOWN_ERROR";
+        }
+    }
+#define VK_CHECK_RESULT(f)																				\
+{																										\
+	VkResult res = (f);																					\
+	if (res != VK_SUCCESS)																				\
+	{																									\
+		std::cout << "Fatal : VkResult is \"" << errorString(res) << "\" in " << __FILE__ << " at line " << __LINE__ << "\n"; \
+		assert(res == VK_SUCCESS);																		\
+	}																									\
+}
     // local callback functions
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -553,6 +595,56 @@ namespace MW {
         if (vkBindImageMemory(device_, image, imageMemory, 0) != VK_SUCCESS) {
             throw std::runtime_error("failed to bind image memory!");
         }
+    }
+    void VulkanDevice::CreateSwapchainKHR(const VkSwapchainCreateInfoKHR* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSwapchainKHR* pSwapchain)
+    {
+        VK_CHECK_RESULT(vkCreateSwapchainKHR(device_, pCreateInfo, pAllocator, pSwapchain));
+    }
+    void VulkanDevice::GetSwapchainImagesKHR(VkSwapchainKHR swapchain, uint32_t* pSwapchainImageCount, VkImage* pSwapchainImages)
+    {
+        VK_CHECK_RESULT(vkGetSwapchainImagesKHR(device_, swapchain, pSwapchainImageCount, pSwapchainImages));
+    }
+
+    void VulkanDevice::QueueSubmit(VkQueue queue, uint32_t submitCount, const VkSubmitInfo* pSubmits, VkFence fence)
+    {
+        VK_CHECK_RESULT(vkQueueSubmit(queue, submitCount, pSubmits, fence));
+    }
+
+    void VulkanDevice::ResetFences(uint32_t fenceCount, const VkFence* pFences) {
+        vkResetFences(device_, fenceCount, pFences);
+    }
+
+    VkResult VulkanDevice::AcquireNextImageKHR(VkSwapchainKHR swapchain, uint64_t timeout, VkSemaphore semaphore, VkFence fence, uint32_t* pImageIndex)
+    {
+        return vkAcquireNextImageKHR(device_,swapchain,timeout,semaphore,fence,pImageIndex);
+    }
+
+    void VulkanDevice::WaitForFences(uint32_t fenceCount, const VkFence* pFences, VkBool32 waitAll, uint64_t timeout)
+    {
+        VK_CHECK_RESULT(vkWaitForFences(device_, fenceCount, pFences, waitAll, timeout));
+    }
+
+    void VulkanDevice::DestroyImageView(VkImageView imageView, const VkAllocationCallbacks* pAllocator = nullptr)
+    {
+        vkDestroyImageView(device_, imageView, pAllocator);
+    }
+    void VulkanDevice::DestroyImage(VkImage image, const VkAllocationCallbacks* pAllocator = nullptr) {
+        vkDestroyImage(device_, image, pAllocator);
+    }
+    void VulkanDevice::FreeMemory(VkDeviceMemory deviceMemory, const VkAllocationCallbacks* pAllocator = nullptr) {
+        vkFreeMemory(device_, deviceMemory, pAllocator);
+    }
+    void VulkanDevice::DestroyFramebuffer(VkFramebuffer framebuffer, const VkAllocationCallbacks* pAllocator = nullptr){
+        vkDestroyFramebuffer(device_, framebuffer, pAllocator);
+    }
+    void VulkanDevice::DestroySemaphore(VkSemaphore semaphore, const VkAllocationCallbacks* pAllocator = nullptr){
+        vkDestroySemaphore(device_, semaphore, pAllocator);
+    }
+    void VulkanDevice::DestroyFence(VkFence fence, const VkAllocationCallbacks* pAllocator = nullptr){
+        vkDestroyFence(device_, fence, pAllocator);
+    }
+    void VulkanDevice::DestroySwapchainKHR(VkSwapchainKHR swapChain, const VkAllocationCallbacks* pAllocator = nullptr) {
+        vkDestroySwapchainKHR(device_, swapChain, pAllocator);
     }
 
 }

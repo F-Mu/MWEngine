@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render_device.h"
+#include "rhi/vulkan_device.h"
 
 // vulkan headers
 #include <vulkan/vulkan.h>
@@ -16,9 +16,9 @@ namespace MW {
     public:
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
-        RenderSwapChain(RenderDevice &deviceRef, VkExtent2D extent);
+        RenderSwapChain(std::shared_ptr<VulkanDevice> deviceRef, VkExtent2D extent);
 
-        RenderSwapChain(RenderDevice &deviceRef, VkExtent2D extent, std::shared_ptr<RenderSwapChain> previous);
+        RenderSwapChain(std::shared_ptr<VulkanDevice> deviceRef, VkExtent2D extent, std::shared_ptr<RenderSwapChain> previous);
 
         ~RenderSwapChain();
 
@@ -86,7 +86,6 @@ namespace MW {
         VkExtent2D swapChainExtent;
 
         std::vector<VkFramebuffer> swapChainFramebuffers;
-        VkRenderPass renderPass;
 
         std::vector<VkImage> depthImages;
         std::vector<VkDeviceMemory> depthImageMemorys;
