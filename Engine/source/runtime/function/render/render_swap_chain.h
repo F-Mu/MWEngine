@@ -94,7 +94,7 @@ namespace MW {
         std::vector<VkImage> swapChainImages;
         std::vector<VkImageView> swapChainImageViews;
 
-        RenderDevice &device;
+        std::shared_ptr<VulkanDevice>device;
         VkExtent2D windowExtent;
 
         VkSwapchainKHR swapChain;

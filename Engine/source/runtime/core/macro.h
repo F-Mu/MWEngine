@@ -7,14 +7,10 @@
  const -> constexpr 《Effective Modern C++》条款15:只要有可能使用constexpr，就使用它
 */
 namespace MW {
-    constexpr int TASK_NUM = 8;
-    constexpr int THREAD_NUM = 5;
     constexpr glm::vec3 SCALE{1.f, 1.f, 1.f};
     constexpr float FRAME_TIME = 60.f;
     constexpr float EPS = 1e-7;
     constexpr float STRICT_EPS = 1e-7;
-    constexpr glm::vec3 TASK_COLOR = {0, .5f, .5f};
-    constexpr glm::vec3 THREAD_COLOR = {0, 0, .5f};
 
     inline bool EQUAL(const glm::vec3 &vec3a, const glm::vec3 &vec3b) noexcept {
         return fabs(vec3a[0] - vec3b[0]) < EPS && fabs(vec3a[1] - vec3b[1]) < EPS;

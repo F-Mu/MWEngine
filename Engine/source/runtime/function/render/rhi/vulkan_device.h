@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 #include <optional>
+#include "vulkan_resources.h"
 
 namespace MW
 {
