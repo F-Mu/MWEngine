@@ -28,7 +28,9 @@ namespace MW {
 
         const glm::mat4 &getInverseView() const { return viewMatrix; }
 
-        const glm::vec3 getPosition()const{return glm::vec3(inverseViewMatrix[3]);}
+        const glm::vec3 getPosition() const { return glm::vec3(inverseViewMatrix[3]); }
+
+        const glm::mat4 getProjViewMatrix() const { return projectionMatrix * viewMatrix; }
 
     private:
         glm::mat4 projectionMatrix{1.f};

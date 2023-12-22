@@ -7,6 +7,6 @@ namespace MW {
     }
 
     void RayTracingCameraPass::createBuffer() {
-        
+
     }
 }
