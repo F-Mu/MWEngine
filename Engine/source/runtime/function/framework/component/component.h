@@ -2,6 +2,7 @@
 
 #include <string>
 #include <utility>
+#include <memory>
 
 namespace MW {
     class GameObject;
@@ -19,7 +20,7 @@ namespace MW {
 
         std::string getTypeName() { return type; }
 
-        [[nodiscard]] bool isDirty() const { return is_dirty; }
+        bool isDirty() const { return is_dirty; }
 
         void setDirty(bool cond) { is_dirty = cond; }
 

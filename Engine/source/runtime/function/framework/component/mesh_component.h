@@ -1,16 +1,17 @@
 #pragma once
 
-#include "render/render_device.h"
 #include "component.h"
 #include "core/vertex.h"
-#include <glm/glm.h>
+#include <glm/glm.hpp>
 #include <vector>
+#include <memory>
 
 namespace MW {
     class MeshComponent : public Component {
     public:
         MeshComponent(const std::weak_ptr<GameObject> &parent, const std::string &type,
-                      std::vector<glm::vec3> &_points, glm::vec3 &_color, bool _fill);
+                      std::vector<Vertex> &_points)
+                : Component(parent, type), points{_points} {}
 
         void getWorld();
 
@@ -18,11 +19,8 @@ namespace MW {
 
         void setPoints(std::vector<glm::vec3> &_points);
 
-        std::vector<glm::vec3> points{};
-        std::vector<Vertex> vertexPoints{};
-        std::vector<uint32_t> worldIndices{};
-        glm::vec3 color;
-        bool fill;
+        std::vector<Vertex> points{};
+        std::vector<uint16_t> indices{};
 
         void tick() override;
     };

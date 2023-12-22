@@ -7,21 +7,24 @@
 
 namespace MW {
     class WindowSystem;
+
     class VulkanDevice;
 
-    struct RenderSystemInitInfo
-    {
+    class MainCameraPass;
+
+    struct RenderSystemInitInfo {
         std::shared_ptr<WindowSystem> window;
     };
+
     class RenderSystem {
     public:
         RenderSystem(RenderSystemInitInfo info);
 
         ~RenderSystem();
 
-        RenderSystem(const RenderSystem&) = delete;
+        RenderSystem(const RenderSystem &) = delete;
 
-        RenderSystem& operator=(const RenderSystem&) = delete;
+        RenderSystem &operator=(const RenderSystem &) = delete;
 
         //VkRenderPass getSwapChainRenderPass() const { return renderSwapChain->getRenderPass(); }
 
@@ -60,7 +63,8 @@ namespace MW {
 
         std::unique_ptr<RenderSwapChain> renderSwapChain{};*/
         //std::vector<VkCommandBuffer> commandBuffers{};
-        std::shared_ptr<VulkanDevice> vulkanDevice;
+        std::shared_ptr<VulkanDevice> device;
+        std::shared_ptr<MainCameraPass> mainCameraPass;
         /*std::shared_ptr<WindowSystem> windowSystem;
         uint32_t currentImageIndex{};
         int currentFrameIndex{};

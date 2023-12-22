@@ -49,14 +49,24 @@ namespace MW {
         }
     };
 
-    struct VulkanDescriptorSet{
-        VkDescriptorSet descriptorSet;
-        VkDescriptorSetLayout descriptorSetLayout;
-        std::vector<VkDescriptorSetLayoutBinding> bindings;
-    };
-
-    struct VulkanMesh{
+    struct VulkanMesh {
         VulkanBuffer vertexBuffer;
         VulkanBuffer indexBuffer;
     };
+
+    struct VulkanSwapChainDesc {
+        VkExtent2D extent;
+        VkFormat imageFormat;
+        VkViewport *viewport;
+        VkRect2D *scissor;
+        std::vector<VkImageView> imageViews;
+    };
+
+    struct VulkanDepthImageDesc {
+        VkImage depthImage = VK_NULL_HANDLE;
+        VkImageView depthImageView = VK_NULL_HANDLE;
+        VkFormat depthImageFormat;
+    };
+
+
 }  // namespace MW

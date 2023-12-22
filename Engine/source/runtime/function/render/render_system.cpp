@@ -10,7 +10,7 @@ namespace MW {
     RenderSystem::RenderSystem(RenderSystemInitInfo info){
         VulkanDeviceInitInfo deviceInfo;
         deviceInfo.windowSystem = info.window;
-        vulkanDevice = std::make_shared<VulkanDevice>(deviceInfo);
+        device = std::make_shared<VulkanDevice>(deviceInfo);
 
     }
 

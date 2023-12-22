@@ -1,10 +1,8 @@
 #pragma once
 
-#include "component/component.h"
-#include "component/transform_component.h"
-#include "component/move_component.h"
+#include "function/framework/component/component.h"
 //libs
-#include <glm/gtc/matrix_transform.h>
+#include <glm/gtc/matrix_transform.hpp>
 //std
 #include <memory>
 #include <unordered_map>
@@ -12,10 +10,11 @@
 #include <iostream>
 
 namespace MW {
+    using id_t = std::size_t;
     class GameObject : public std::enable_shared_from_this<GameObject> {
     public:
         static GameObject createGameObject() {
-            static id_t currentId = 0;
+            static std::atomic<id_t> currentId = 0;
             return {currentId++};
         }
 
