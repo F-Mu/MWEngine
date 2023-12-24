@@ -4,7 +4,7 @@
 
 #include <cassert>
 
-namespace Piccolo
+namespace MW
 {
     template<typename...>
     inline constexpr bool always_false = false;
@@ -166,4 +166,4 @@ namespace Piccolo
 
     //
     ////////////////////////////////////
-} // namespace Piccolo
+} // namespace MW

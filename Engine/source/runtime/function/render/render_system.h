@@ -4,70 +4,38 @@
 #include <cassert>
 #include <memory>
 #include <vector>
-
+#include "rhi/vulkan_device.h"
 namespace MW {
     class WindowSystem;
-
-    class VulkanDevice;
-
     class MainCameraPass;
-
+    class RenderResource;
+    class RenderCamera;
     struct RenderSystemInitInfo {
         std::shared_ptr<WindowSystem> window;
     };
 
     class RenderSystem {
     public:
-        RenderSystem(RenderSystemInitInfo info);
+        RenderSystem();
 
         ~RenderSystem();
+
+        void initialize(RenderSystemInitInfo& info);
+
+        void clean();
 
         RenderSystem(const RenderSystem &) = delete;
 
         RenderSystem &operator=(const RenderSystem &) = delete;
 
-        //VkRenderPass getSwapChainRenderPass() const { return renderSwapChain->getRenderPass(); }
+        void tick(float delta_time);
 
-        //float getAspectRatio() const { return renderSwapChain->extentAspectRatio(); }
-
-        /*bool isFrameInProgress() const {
-            return isFrameStarted;
-        }
-
-        VkCommandBuffer getCurrentCommandBuffer() const {
-            assert(isFrameStarted && "Cannot get command buffer when frame not in progress");
-            return commandBuffers[currentFrameIndex];
-        }
-
-        int getFrameIndex() const {
-            assert(isFrameStarted && "Cannot get frame index when frame not in progress");
-            return currentFrameIndex;
-        }
-
-        VkCommandBuffer beginFrame();
-
-        void endFrame();
-
-        void beginSwapChainRenderPass();
-
-        void endSwapChainRenderPass();
-
-        std::shared_ptr<VkCommandBuffer> nowCommandBuffer;*/
-
+        void passUpdateAfterRecreateSwapchain();
     private:
-        /*void createCommandBuffers();
-
-        void freeCommandBuffers();
-
-        void recreateSwapChain();
-
-        std::unique_ptr<RenderSwapChain> renderSwapChain{};*/
-        //std::vector<VkCommandBuffer> commandBuffers{};
+        std::shared_ptr<RenderResource>renderResource;
         std::shared_ptr<VulkanDevice> device;
         std::shared_ptr<MainCameraPass> mainCameraPass;
-        /*std::shared_ptr<WindowSystem> windowSystem;
-        uint32_t currentImageIndex{};
-        int currentFrameIndex{};
-        bool isFrameStarted{};*/
+        std::shared_ptr<WindowSystem> windowSystem;
+        std::shared_ptr<RenderCamera> renderCamera;
     };
 }

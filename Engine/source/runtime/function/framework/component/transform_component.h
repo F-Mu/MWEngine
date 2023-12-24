@@ -1,6 +1,6 @@
 #pragma once
 
-#include <glm/glm.h>
+#include <glm/glm.hpp>
 #include "component.h"
 #include "string"
 #include "core/macro.h"

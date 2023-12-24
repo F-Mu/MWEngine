@@ -16,6 +16,10 @@ namespace MW {
         return fabs(vec3a[0] - vec3b[0]) < EPS && fabs(vec3a[1] - vec3b[1]) < EPS;
     }
 
+    inline constexpr uint32_t alignedSize(uint32_t value, uint32_t alignment) noexcept {
+        return (value + alignment - 1) & ~(alignment - 1);
+    }
+
     inline bool FIX_EQUAL(glm::vec3 &vec3a, const glm::vec3 &vec3b) noexcept {
         if (fabs(vec3a[0] - vec3b[0]) < EPS && fabs(vec3a[1] - vec3b[1]) < EPS) {
             vec3a[0] = vec3b[0];

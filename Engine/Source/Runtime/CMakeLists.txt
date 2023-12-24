@@ -37,10 +37,9 @@ target_include_directories(
 
 target_include_directories(
   ${TARGET_NAME} 
-  PUBLIC $<BUILD_INTERFACE:${ENGINE_ROOT_DIR}/source/Runtime>
+  PUBLIC $<BUILD_INTERFACE:${ENGINE_ROOT_DIR}/source/runtime>
   $<INSTALL_INTERFACE:include/${TARGET_NAME}-${PROJECT_VERSION}>
 )
-set(MW_RUNTIME_HEADS "${HEADER_FILES}" PARENT_SCOPE)
 target_include_directories(
   ${TARGET_NAME} 
   PUBLIC $<BUILD_INTERFACE:${JSON_INCLUDE}>
@@ -49,8 +48,13 @@ target_include_directories(
   ${TARGET_NAME}
   PUBLIC $<BUILD_INTERFACE:${vulkan_include}>)
 
-  
+add_dependencies(${TARGET_NAME} ${SHADER_COMPILE_TARGET})
+target_include_directories(
+  ${TARGET_NAME}
+  PUBLIC $<BUILD_INTERFACE:${ENGINE_ROOT_DIR}/shader/generated/cpp>)
+
 target_include_directories(
   ${TARGET_NAME} 
   PUBLIC $<BUILD_INTERFACE:${THIRD_PARTY_DIR}/vulkanmemoryallocator/include>
 )
+set(MW_RUNTIME_HEADS "${HEADER_FILES}" PARENT_SCOPE)

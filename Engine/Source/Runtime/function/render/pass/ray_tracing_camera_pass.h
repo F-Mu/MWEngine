@@ -3,12 +3,44 @@
 #include "main_camera_pass.h"
 
 namespace MW {
-    class RayTracingCameraPass : MainCameraPass {
+    class RayTracingCameraPass : public MainCameraPass {
     public:
-        void preparePassData(std::shared_ptr<RenderResource> render_resource) override;
+        void initialize(const RenderPassInitInfo &init_info) override;
 
-        void createBuffer();
+        void createDeviceSupport();
+
+        void createBottomLevelAccelerationStructure();
+
+        void createTopLevelAccelerationStructure();
+
+        void createStorageImage();
+
+        void createUniformBuffer();
+
+        void createShaderBindingTable();
+
+        void createDescriptorSets() override;
+
+        void draw() override;
+
+        void createPipelines() override;
+
+        void updateAfterFramebufferRecreate() override;
+
+        virtual void preparePassData() override;
+
     private:
-        VulkanBuffer cameraUniformBuffer;
+        AccelerationStructure bottomLevelAS{};
+        AccelerationStructure topLevelAS{};
+
+        VulkanBuffer vertexBuffer;
+        VulkanBuffer indexBuffer;
+        VulkanBuffer transformBuffer;
+        VulkanBuffer raygenShaderBindingTable;
+        VulkanBuffer missShaderBindingTable;
+        VulkanBuffer hitShaderBindingTable;
+        StorageImage storageImage;
+        uint32_t indexCount;
+        std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
     };
 }

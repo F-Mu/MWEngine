@@ -12,6 +12,7 @@
 #include <vector>
 #include <optional>
 #include "vulkan_resources.h"
+#include "vulkan_util.h"
 
 namespace MW {
     class WindowSystem;
@@ -45,7 +46,7 @@ namespace MW {
         const bool enableValidationLayers = true;
 #endif
 
-        VulkanDevice(VulkanDeviceInitInfo info);
+        VulkanDevice();
 
         ~VulkanDevice();
 
@@ -58,15 +59,11 @@ namespace MW {
 
         VulkanDevice &operator=(VulkanDevice &&) = delete;
 
+        void initialize(VulkanDeviceInitInfo info);
+
+        void clean();
+
         VkCommandPool getCommandPool() { return commandPool; }
-
-        VkDevice device() { return device_; }
-
-        VkSurfaceKHR surface() { return surface_; }
-
-        VkQueue graphicsQueue() { return graphicsQueue_; }
-
-        VkQueue presentQueue() { return presentQueue_; }
 
         SwapChainSupportDetails getSwapChainSupport() { return querySwapChainSupport(physicalDevice); }
 
@@ -77,17 +74,16 @@ namespace MW {
         VkFormat findSupportedFormat(
                 const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
+        void findFunctionRequired();
+
         // Buffer Helper Functions
         void CreateBuffer(
                 VkDeviceSize size,
                 VkBufferUsageFlags usage,
                 VkMemoryPropertyFlags properties,
                 VkBuffer &buffer,
-                VkDeviceMemory &bufferMemory);
-
-        void CreateDescriptorSetLayout(const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
-                                       VkDescriptorSetLayout *pSetLayout,
-                                       const VkAllocationCallbacks *pAllocator = nullptr);
+                VkDeviceMemory &bufferMemory,
+                const void *pNext = nullptr);
 
         void copyBuffer(VkBuffer *srcBuffer, VkBuffer *dstBuffer, VkDeviceSize srcOffset, VkDeviceSize dstOffset,
                         VkDeviceSize size);
@@ -120,12 +116,32 @@ namespace MW {
                                        VkDescriptorSetLayout *pSetLayout,
                                        const VkAllocationCallbacks *pAllocator = nullptr);
 
+        void CreateDescriptorSet(uint32_t descriptorSetCount, const VkDescriptorSetLayout &pSetLayouts,
+                                 VkDescriptorSet &set);
+
+        void AllocateDescriptorSets(const VkDescriptorSetAllocateInfo *pAllocateInfo,
+                                    VkDescriptorSet *pDescriptorSets);
+
+        void UpdateDescriptorSets(uint32_t descriptorWriteCount,
+                                  const VkWriteDescriptorSet *pDescriptorWrites,
+                                  uint32_t descriptorCopyCount = 0,
+                                  const VkCopyDescriptorSet *pDescriptorCopies = nullptr);
+
         void CreateFramebuffer(const VkFramebufferCreateInfo *pCreateInfo, VkFramebuffer *pFramebuffer,
                                const VkAllocationCallbacks *pAllocator = nullptr);
 
         void CreateGraphicsPipelines(VkPipelineCache pipelineCache, uint32_t CreateInfoCount,
                                      const VkGraphicsPipelineCreateInfo *pCreateInfos, VkPipeline *pPipelines,
                                      const VkAllocationCallbacks *pAllocator = nullptr);
+
+        void CreateGraphicsPipelines(const VkGraphicsPipelineCreateInfo *pCreateInfos, VkPipeline *pPipelines);
+
+        void CreateRayTracingPipelinesKHR(const VkRayTracingPipelineCreateInfoKHR *pCreateInfos,
+                                          VkPipeline *pPipelines,
+                                          uint32_t createInfoCount = 1,
+                                          VkDeferredOperationKHR deferredOperation = VK_NULL_HANDLE,
+                                          VkPipelineCache pipelineCache = VK_NULL_HANDLE,
+                                          const VkAllocationCallbacks *pAllocator = nullptr);
 
         void CreateComputePipelines(VkPipelineCache pipelineCache, uint32_t CreateInfoCount,
                                     const VkComputePipelineCreateInfo *pCreateInfos, VkPipeline *pPipelines,
@@ -139,10 +155,10 @@ namespace MW {
 
         void CreateSampler(const VkSamplerCreateInfo *pCreateInfo, VkSampler *pSampler,
                            const VkAllocationCallbacks *pAllocator = nullptr);
-         void  AllocateDescriptorSets(
-                const VkDescriptorSetAllocateInfo*          pAllocateInfo,
-                VkDescriptorSet*                            pDescriptorSets);
+
         VkCommandBuffer beginSingleTimeCommands();
+
+        VkShaderModule CreateShaderModule(const std::vector<unsigned char> &shader_code);
 
         void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
@@ -152,7 +168,7 @@ namespace MW {
                 VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
 
         void CreateImageWithInfo(const VkImageCreateInfo &imageInfo,
-                                 VkMemoryPropertyFlags properties,
+                                 VkMemoryPropertyFlags propertiesFlags,
                                  VkImage &image,
                                  VkDeviceMemory &imageMemory);
 
@@ -195,6 +211,27 @@ namespace MW {
                              VkImageView *pView,
                              const VkAllocationCallbacks *pAllocator = nullptr);
 
+        void
+        CreateDeviceBuffer(VkBufferUsageFlags usageFlags, VulkanBuffer &buffer,
+                           VkDeviceSize size, void *data = nullptr);
+
+        void
+        CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VulkanBuffer &buffer,
+                     VkDeviceSize size, void *data = nullptr);
+
+
+        void transitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout,
+                                   bool useCurrentCommandBuffer = false,
+                                   VkImageSubresourceRange subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+                                   VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                   VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+        void transitionImageLayout(VkCommandBuffer cmdbuffer, VkImage image, VkImageLayout oldLayout,
+                                   VkImageLayout newLayout,
+                                   VkImageSubresourceRange subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},
+                                   VkPipelineStageFlags srcStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                   VkPipelineStageFlags dstStageMask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
         void ResetFences(uint32_t fenceCount, const VkFence *pFences);
 
         void CreateDescriptorPool();
@@ -216,6 +253,20 @@ namespace MW {
 
         void DestroySwapchainKHR(VkSwapchainKHR swapChain, const VkAllocationCallbacks *pAllocator = nullptr);
 
+        void DestroyShaderModule(VkShaderModule module, const VkAllocationCallbacks *pAllocator = nullptr);
+
+        void recreateSwapChain();
+
+        bool prepareBeforePass(std::function<void()> passUpdateAfterRecreateSwapchain);
+
+        void MapMemory(VulkanBuffer &vulkanBuffer, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+
+        void flushBuffer(VulkanBuffer &buffer, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+
+        void unMapMemory(VulkanBuffer &buffer);
+
+        void getEnabledFeatures();
+
         VkImageView getImageView(int index) { return swapChainImageViews[index]; }
 
         VulkanSwapChainDesc getSwapchainInfo();
@@ -232,17 +283,84 @@ namespace MW {
 
         uint32_t height() { return swapChainExtent.height; }
 
+        VkImage getCurrentImage() { return swapChainImages[currentImageIndex]; }
+
         VkDescriptorPool getDescriptorPool() { return descriptorPool; }
+
+        void GetPhysicalDeviceProperties2(VkPhysicalDeviceProperties2 *pProperties);
+
+        void GetPhysicalDeviceFeatures2(VkPhysicalDeviceFeatures2 *pFeatures);
+
+        void createAccelerationStructureBuffer(AccelerationStructure &accelerationStructure,
+                                               VkAccelerationStructureBuildSizesInfoKHR buildSizeInfo);
+
+        VkCommandBuffer getCurrentCommandBuffer() const {
+            return commandBuffers[currentFrameIndex];
+        }
+
+        int getFrameIndex() const {
+            return currentFrameIndex;
+        }
 
         float extentAspectRatio() {
             return static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height);
         }
 
+        void waitForFences();
+
+        void resetCommandPool();
+
         VkFormat findDepthFormat();
 
         VkResult acquireNextImage(uint32_t *imageIndex);
 
-        VkResult submitCommandBuffers(const VkCommandBuffer *buffers, uint32_t *imageIndex);
+        void submitCommandBuffers(std::function<void()> passUpdateAfterRecreateSwapchain);
+
+        uint64_t getBufferDeviceAddress(VkBuffer &buffer);
+
+        void GetAccelerationStructureBuildSizesKHR(
+                VkAccelerationStructureBuildTypeKHR buildType,
+                const VkAccelerationStructureBuildGeometryInfoKHR *pBuildInfo,
+                const uint32_t *pMaxPrimitiveCounts,
+                VkAccelerationStructureBuildSizesInfoKHR *pSizeInfo);
+
+        void CreateAccelerationStructureKHR(
+                const VkAccelerationStructureCreateInfoKHR *pCreateInfo,
+                VkAccelerationStructureKHR *pAccelerationStructure,
+                const VkAllocationCallbacks *pAllocator = nullptr);
+
+        RayTracingScratchBuffer createScratchBuffer(VkDeviceSize size);
+
+        void destroyScratchBuffer(RayTracingScratchBuffer &scratchBuffer);
+
+        void destroyVulkanBuffer(VulkanBuffer &vulkanBuffer);
+
+        uint32_t getAccelerationStructureDeviceAddressKHR(const VkAccelerationStructureDeviceAddressInfoKHR *pInfo);
+
+        void GetRayTracingShaderGroupHandlesKHR(VkPipeline pipeline,
+                                                uint32_t firstGroup,
+                                                uint32_t groupCount,
+                                                size_t dataSize,
+                                                void *pData);
+
+        void CmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer,
+                                               uint32_t infoCount,
+                                               const VkAccelerationStructureBuildGeometryInfoKHR *pInfos,
+                                               const VkAccelerationStructureBuildRangeInfoKHR *const *ppBuildRangeInfos);
+
+        void CmdTraceRaysKHR(VkCommandBuffer commandBuffer,
+                             const VkStridedDeviceAddressRegionKHR *pRaygenShaderBindingTable,
+                             const VkStridedDeviceAddressRegionKHR *pMissShaderBindingTable,
+                             const VkStridedDeviceAddressRegionKHR *pHitShaderBindingTable,
+                             const VkStridedDeviceAddressRegionKHR *pCallableShaderBindingTable,
+                             uint32_t width,
+                             uint32_t height,
+                             uint32_t depth);
+
+        void BuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer,
+                                            uint32_t infoCount,
+                                            const VkAccelerationStructureBuildGeometryInfoKHR *pInfos,
+                                            const VkAccelerationStructureBuildRangeInfoKHR *const *ppBuildRangeInfos);
 
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -252,20 +370,26 @@ namespace MW {
         VkViewport swapChainViewport;
         VkRect2D swapChainScissor;
 
-        VkImage depthImages;
+        VkImage depthImages = VK_NULL_HANDLE;
         VkDeviceMemory depthImageMemorys;
-        VkImageView depthImageViews;
+        VkImageView depthImageViews = VK_NULL_HANDLE;
         std::vector<VkImage> swapChainImages;
         std::vector<VkImageView> swapChainImageViews;
 
         VkExtent2D windowExtent;
 
         VkSwapchainKHR swapChain;
-        std::vector<VkSemaphore> imageAvailableSemaphores;
-        std::vector<VkSemaphore> renderFinishedSemaphores;
-        std::vector<VkFence> inFlightFences;
-        std::vector<VkFence> imagesInFlight;
-        size_t currentFrame = 0;
+        VkSemaphore imageAvailableSemaphores[MAX_FRAMES_IN_FLIGHT];
+        VkSemaphore renderFinishedSemaphores[MAX_FRAMES_IN_FLIGHT];
+        VkFence inFlightFences[MAX_FRAMES_IN_FLIGHT];
+        VkCommandBuffer commandBuffers[MAX_FRAMES_IN_FLIGHT];
+        uint32_t currentImageIndex{};
+        int currentFrameIndex{};
+        QueueFamilyIndices queueIndices;
+
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
+
     private:
         void CreateInstance();
 
@@ -279,6 +403,8 @@ namespace MW {
 
         void CreateCommandPool();
 
+        void CreateCommandBuffers();
+
         // helper functions
         bool isDeviceSuitable(VkPhysicalDevice device);
 
@@ -290,8 +416,6 @@ namespace MW {
 
         void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &CreateInfo);
 
-        void hasGflwRequiredInstanceExtensions();
-
         bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 
         SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
@@ -302,20 +426,22 @@ namespace MW {
         /*WindowSystem& window;*/
         GLFWwindow *window{nullptr};
         VkCommandPool commandPool;
+        VkCommandPool swapChainCommandPools[MAX_FRAMES_IN_FLIGHT];
 
-        VkDevice device_;
-        VkSurfaceKHR surface_;
-        VkQueue graphicsQueue_;
-        VkQueue presentQueue_;
+        VkDevice device;
+        VkSurfaceKHR surface;
+        VkQueue graphicsQueue;
+        VkQueue presentQueue;
         VkDescriptorPool descriptorPool;
 
         const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-        const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+        std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+                                                      VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME};
 
 
         void createSwapChain();
 
-        void createImageViews();
+        void createSwapChainImageViews();
 
         void createDepthResources();
 
@@ -333,6 +459,23 @@ namespace MW {
                 const std::vector<VkPresentModeKHR> &availablePresentModes);
 
         VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
+
+        PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
+        PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
+        PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;
+        PFN_vkGetAccelerationStructureBuildSizesKHR vkGetAccelerationStructureBuildSizesKHR;
+        PFN_vkGetAccelerationStructureDeviceAddressKHR vkGetAccelerationStructureDeviceAddressKHR;
+        PFN_vkBuildAccelerationStructuresKHR vkBuildAccelerationStructuresKHR;
+        PFN_vkCmdBuildAccelerationStructuresKHR vkCmdBuildAccelerationStructuresKHR;
+        PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
+        PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
+        PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+
+        VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferDeviceAddresFeatures{};
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingPipelineFeatures{};
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructureFeatures{};
+        void *deviceCreatepNextChain = nullptr;
+        VkPhysicalDeviceFeatures enabledFeatures{};
     };
 
 }

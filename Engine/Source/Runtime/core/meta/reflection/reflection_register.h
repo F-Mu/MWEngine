@@ -1,5 +1,5 @@
 #pragma once
-namespace Piccolo
+namespace MW
 {
     namespace Reflection
     {
@@ -10,4 +10,4 @@ namespace Piccolo
             static void metaUnregister();
         };
     } // namespace Reflection
-} // namespace Piccolo
+} // namespace MW

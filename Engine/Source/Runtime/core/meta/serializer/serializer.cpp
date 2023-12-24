@@ -1,6 +1,6 @@
 #include "serializer.h"
 #include <assert.h>
-namespace Piccolo
+namespace MW
 {
 
     template<>
@@ -149,4 +149,4 @@ namespace Piccolo
     }*/
 
     ////////////////////////////////////
-} // namespace Piccolo
+} // namespace MW

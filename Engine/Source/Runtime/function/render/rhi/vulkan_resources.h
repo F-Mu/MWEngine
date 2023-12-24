@@ -60,6 +60,7 @@ namespace MW {
         VkViewport *viewport;
         VkRect2D *scissor;
         std::vector<VkImageView> imageViews;
+        std::vector<VkImage> images;
     };
 
     struct VulkanDepthImageDesc {
@@ -68,5 +69,25 @@ namespace MW {
         VkFormat depthImageFormat;
     };
 
+    struct RayTracingScratchBuffer
+    {
+        uint64_t deviceAddress = 0;
+        VkBuffer handle = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+    };
 
+    // Ray tracing acceleration structure
+    struct AccelerationStructure {
+        VkAccelerationStructureKHR handle;
+        uint64_t deviceAddress = 0;
+        VkDeviceMemory memory;
+        VkBuffer buffer;
+    };
+
+    struct StorageImage {
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkImage image = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkFormat format;
+    };
 }  // namespace MW

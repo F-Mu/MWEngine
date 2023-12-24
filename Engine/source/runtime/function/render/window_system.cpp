@@ -8,7 +8,7 @@ namespace MW {
         glfwTerminate();
     }
 
-    void WindowSystem::initialize(WindowCreateInfo create_info) {
+    void WindowSystem::initialize(WindowCreateInfo& create_info) {
         glfwInit();
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);

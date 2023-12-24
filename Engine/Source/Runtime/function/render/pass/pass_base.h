@@ -6,12 +6,13 @@
 #include <vector>
 
 namespace MW {
+    class RenderResource;
 
     struct RenderPassInitInfo {
         std::shared_ptr<VulkanDevice> device;
+        std::shared_ptr<RenderResource> renderResource;
     };
 
-    class RenderResource;
 
     class PassBase {
     public:
@@ -42,7 +43,7 @@ namespace MW {
         };
 
         std::vector<Descriptor> descriptors;
-        std::vector<RenderPipelineBase> renderPipelines;
+        std::vector<RenderPipelineBase> pipelines;
         Framebuffer framebuffer;
 
         virtual void draw();
@@ -51,13 +52,14 @@ namespace MW {
 
         virtual std::vector<VkImageView> getFramebufferImageViews() const;
 
-        virtual std::vector<VkDescriptorSetLayout *> getDescriptorSetLayouts() const;
+        virtual std::vector<VkDescriptorSetLayout> getDescriptorSetLayouts() const;
 
-        virtual void preparePassData(std::shared_ptr<RenderResource> render_resource);
+        virtual void initialize(const RenderPassInitInfo &info);
 
-        virtual void initialize(const RenderPassInitInfo *info);
+        virtual void preparePassData();
 
     protected:
-        std::shared_ptr<VulkanDevice> device;
+        std::shared_ptr<VulkanDevice>device;
+        std::shared_ptr<RenderResource> renderResource;
     };
 } // namespace MW

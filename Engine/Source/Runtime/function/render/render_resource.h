@@ -11,13 +11,13 @@
 
 namespace MW {
     // TODO:给proj_view_matrix
-    struct CameraUniformBuffer {
+    struct CameraObject {
         glm::mat4 viewMatrix;
         glm::mat4 projMatrix;
     };
 
     class RenderResource {
     public:
-        CameraUniformBuffer meshUniformBuffer;
+        CameraObject cameraObject;
     };
 } // namespace MW

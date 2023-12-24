@@ -23,13 +23,13 @@ namespace MW {
 	void MWEditor::run()
 	{
 		float deltaTime;
-		while (!editorGlobalContext.windowSystem->shouldClose()) {
+		while (!engineGlobalContext.windowSystem->shouldClose()) {
 			glfwPollEvents();
 			deltaTime = calculateDeltaTime();
 			/*
 			editorGlobalContext.m_scene_manager->tick(delta_time);
 			g_editor_global_context.m_input_manager->tick(delta_time);*/
-			engine->Tick(deltaTime);
+			engine->tick(deltaTime);
 		}
 	}
 	void MWEditor::initialize()

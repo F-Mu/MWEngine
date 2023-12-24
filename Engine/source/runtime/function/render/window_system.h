@@ -35,7 +35,7 @@ namespace MW {
 
         void createWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
 
-        void initialize(WindowCreateInfo create_info);
+        void initialize(WindowCreateInfo& create_info);
 
     private:
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);

@@ -12,7 +12,7 @@ namespace MW
         ~MWEngine() {};
         void run();
 
-        void Tick(float deltaTime);
+        void tick(float deltaTime);
 
         void clear();
         void initialize();

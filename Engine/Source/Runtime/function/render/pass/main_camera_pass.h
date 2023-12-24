@@ -7,26 +7,26 @@ namespace MW {
 
     class MainCameraPass : public PassBase {
     public:
-        void initialize(const RenderPassInitInfo *init_info) override;
+        void initialize(const RenderPassInitInfo &init_info) override;
+
+        virtual void preparePassData() override;
 
         void draw() override;
 
-        void preparePassData(std::shared_ptr<RenderResource> render_resource) override;
+        virtual void updateAfterFramebufferRecreate();
 
-    private:
-        virtual void setupRenderPass();
-
-        virtual void setupDescriptorSetLayout();
-
-        virtual void setupPipelines();
-
-        virtual void setupDescriptorSet();
-
-        virtual void setupFramebufferDescriptorSet();
-
-        virtual void setupSwapchainFramebuffers();
-
-    private:
+    protected:
+        VulkanBuffer cameraUniformBuffer;
         std::vector<VkFramebuffer> swapChainFramebuffers;
+
+        virtual void createRenderPass();
+
+        virtual void createPipelines();
+
+        virtual void createDescriptorSets();
+
+        virtual void createSwapchainFramebuffers();
+
+        void updateCamera();
     };
 } // namespace MW
