@@ -9,6 +9,7 @@
 #include "pass/ray_tracing_camera_pass.h"
 #include "render_resource.h"
 #include "render_camera.h"
+#include "window_system.h"
 
 namespace MW {
     RenderSystem::RenderSystem() {
@@ -29,7 +30,8 @@ namespace MW {
         mainCameraPass = std::make_shared<RayTracingCameraPass>();
         mainCameraPass->initialize(passInfo);
         renderCamera = std::make_shared<RenderCamera>();
-        auto x=glm::vec3();
+        auto windowSize = info.window->getWindowSize();
+        renderCamera->setAspect(windowSize[0] * 1.0 / windowSize[1]);
     }
 
     void RenderSystem::clean() {
@@ -40,8 +42,25 @@ namespace MW {
     }
 
     void RenderSystem::tick(float delta_time) {
-        renderResource->cameraObject.projMatrix = glm::inverse(renderCamera->getProjection());
-        renderResource->cameraObject.viewMatrix = glm::inverse(renderCamera->getView());
+        renderResource->cameraObject.projMatrix = renderCamera->getPersProjMatrix().inverse();
+        renderResource->cameraObject.viewMatrix = renderCamera->getViewMatrix().inverse();
+        {
+            static bool first =true;
+            if(first){
+                first=false;
+                std::cout<<renderCamera->forward()[0]<<' '<<renderCamera->forward()[1]<<'#'<<renderCamera->forward()[2]<<std::endl;
+                std::cout<<renderCamera->up()[0]<<' '<<renderCamera->up()[1]<<'#'<<renderCamera->up()[2]<<std::endl;
+                std::cout<<renderCamera->right()[0]<<' '<<renderCamera->right()[1]<<'#'<<renderCamera->right()[2]<<std::endl;
+                for(int i=0;i<4;++i){
+                    for(int j=0;j<4;++j)std::cout<<renderCamera->getPersProjMatrix()[i][j]<<' ';
+                    std::cout<<std::endl;
+                }
+                for(int i=0;i<4;++i){
+                    for(int j=0;j<4;++j)std::cout<<renderCamera->getViewMatrix()[i][j]<<' ';
+                    std::cout<<std::endl;
+                }
+            }
+        }
         mainCameraPass->preparePassData();
         device->prepareBeforePass(std::bind(&RenderSystem::passUpdateAfterRecreateSwapchain, this));
         mainCameraPass->draw();

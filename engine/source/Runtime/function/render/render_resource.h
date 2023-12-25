@@ -1,8 +1,7 @@
 #pragma once
 
+#include "core/math/math_headers.h"
 #include <vulkan/vulkan.h>
-#include <glm/glm.hpp>
-
 #include <array>
 #include <cstdint>
 #include <map>
@@ -12,8 +11,8 @@
 namespace MW {
     // TODO:给proj_view_matrix
     struct CameraObject {
-        glm::mat4 viewMatrix;
-        glm::mat4 projMatrix;
+        Matrix4x4 viewMatrix;
+        Matrix4x4 projMatrix;
     };
 
     class RenderResource {

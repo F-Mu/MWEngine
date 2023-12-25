@@ -17,21 +17,18 @@ namespace MW {
         height = create_info.height;
         window = glfwCreateWindow(create_info.width, create_info.height, create_info.title, nullptr, nullptr);
         glfwSetWindowUserPointer(window, this);
-        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+        glfwSetKeyCallback(window, keyCallback);
+        glfwSetCharCallback(window, charCallback);
+        glfwSetCharModsCallback(window, charModsCallback);
+        glfwSetMouseButtonCallback(window, mouseButtonCallback);
+        glfwSetCursorPosCallback(window, cursorPosCallback);
+        glfwSetCursorEnterCallback(window, cursorEnterCallback);
+        glfwSetScrollCallback(window, scrollCallback);
+        glfwSetDropCallback(window, dropCallback);
+        glfwSetWindowSizeCallback(window, windowSizeCallback);
+        glfwSetWindowCloseCallback(window, windowCloseCallback);
+
+        glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
 
     }
-
-    void WindowSystem::createWindowSurface(VkInstance instance, VkSurfaceKHR* surface) {
-        if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create window surface");
-        }
-    }
-
-    void WindowSystem::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-        auto windowSystem = reinterpret_cast<WindowSystem*>(glfwGetWindowUserPointer(window));
-        windowSystem->framebufferResized = true;
-        windowSystem->width = width;
-        windowSystem->height = height;
-    }
-
 }

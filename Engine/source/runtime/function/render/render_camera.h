@@ -3,38 +3,51 @@
 //std
 
 //libs
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLFORCE_RADIANS
+#define GLFORCE_DEPTH_ZERO_TO_ONE
 
-#include <glm/glm.hpp>
+#include "core/math/math_headers.h"
 
 namespace MW {
-    class RenderCamera {
+    class RenderCamera { //根据Piccolo引擎代码，是根据控制Aspect和fovX来控制摄像机，fovY通过计算获得
     public:
-        void setOrthographicProjection(
-                float left, float right, float top, float bottom, float near, float far);
+        void move(Vector3 delta);
 
-        void setPerspectiveProjection(float fovy, float aspect, float near, float far);
+        Vector3 forward() const { return (invRotation * Y); }
 
-        void setViewDirection(glm::vec3 postion, glm::vec3 direction, glm::vec3 up = glm::vec3{0.f, -1.f, 0.f});
+        Vector3 up() const { return (invRotation * Z); }
 
-        void setViewTarget(glm::vec3 postion, glm::vec3 target, glm::vec3 up = glm::vec3{0.f, -1.f, 0.f});
+        Vector3 right() const { return (invRotation * X); }
 
-        void setViewYXZ(glm::vec3 position, glm::vec3 rotation);
+        Matrix4x4 getViewMatrix() const;
 
-        const glm::mat4 &getProjection() const { return projectionMatrix; }
+        Matrix4x4 getPersProjMatrix() const;
 
-        const glm::mat4 &getView() const { return viewMatrix; }
+        void rotate(Vector2 delta);
 
-        const glm::mat4 &getInverseView() const { return viewMatrix; }
+        Vector2 getFOV() const { return {fovX, fovY}; }
 
-        const glm::vec3 getPosition() const { return glm::vec3(inverseViewMatrix[3]); }
+        void setAspect(float as);
 
-        const glm::mat4 getProjViewMatrix() const { return projectionMatrix * viewMatrix; }
+        Vector3 getPosition() const { return position; }
+
+        Quaternion getRotation() const { return rotation; }
 
     private:
-        glm::mat4 projectionMatrix{1.f};
-        glm::mat4 viewMatrix{1.f};
-        glm::mat4 inverseViewMatrix{1.f};
+        float fovX{Degree(89.f).valueDegrees()};
+        float fovY{0.f};
+        float near{1000.0f};
+        float far{0.1f};
+        float aspect{0.f};
+        Vector3 position{0.0f, 0.0f, 0.0f};
+        Quaternion rotation{Quaternion::IDENTITY};
+        Quaternion invRotation{Quaternion::IDENTITY};
+        static constexpr float MIN_FOV{10.0f};
+        static constexpr float MAX_FOV{89.0f};
+        static const Vector3 X, Y, Z;
     };
+
+    inline const Vector3 RenderCamera::X = {1.0f, 0.0f, 0.0f};
+    inline const Vector3 RenderCamera::Y = {0.0f, 1.0f, 0.0f};
+    inline const Vector3 RenderCamera::Z = {0.0f, 0.0f, 1.0f};
 }
