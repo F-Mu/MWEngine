@@ -1,7 +1,7 @@
 #pragma once
 
 #include "component.h"
-#include "core/vertex.h"
+#include "function/render/render_entity.h"
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>
