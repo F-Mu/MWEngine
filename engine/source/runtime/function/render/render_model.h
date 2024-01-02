@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include <stdlib.h>
+#include <cstdlib>
 #include <string>
 #include <fstream>
 #include <vector>
@@ -64,7 +64,7 @@ namespace MW
         uint32_t index;
         void updateDescriptor();
         void destroy();
-        void fromglTfImage(tinygltf::Image& gltfimage, std::string path, VulkanDevice* device, VkQueue copyQueue);
+        void fromglTfImage(tinygltf::Image& gltfimage, std::string path, VulkanDevice* device);
     };
 
     /*
@@ -207,7 +207,7 @@ namespace MW
     */
     enum class VertexComponent { Position, Normal, UV, Color, Tangent, Joint0, Weight0 };
 
-    struct Vertex {
+    struct gltfVertex {
         glm::vec3 pos;
         glm::vec3 normal;
         glm::vec2 uv;
@@ -247,7 +247,7 @@ namespace MW
     private:
         Texture* getTexture(uint32_t index);
         Texture emptyTexture;
-        void createEmptyTexture(VkQueue transferQueue);
+        void createEmptyTexture();
     public:
         VulkanDevice* device;
 
@@ -283,12 +283,12 @@ namespace MW
 
         Model() {};
         ~Model();
-        void loadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer, float globalscale);
+        void loadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model, std::vector<uint32_t>& indexBuffer, std::vector<gltfVertex>& vertexBuffer, float globalscale);
         void loadSkins(tinygltf::Model& gltfModel);
-        void loadImages(tinygltf::Model& gltfModel, VulkanDevice* device, VkQueue transferQueue);
+        void loadImages(tinygltf::Model& gltfModel, VulkanDevice* device);
         void loadMaterials(tinygltf::Model& gltfModel);
         void loadAnimations(tinygltf::Model& gltfModel);
-        void loadFromFile(std::string filename, VulkanDevice* device, VkQueue transferQueue, uint32_t fileLoadingFlags = FileLoadingFlags::None, float scale = 1.0f);
+        void loadFromFile(std::string filename, VulkanDevice* device, uint32_t fileLoadingFlags = FileLoadingFlags::None, float scale = 1.0f);
         void bindBuffers(VkCommandBuffer commandBuffer);
         void drawNode(Node* node, VkCommandBuffer commandBuffer, uint32_t renderFlags = 0, VkPipelineLayout pipelineLayout = VK_NULL_HANDLE, uint32_t bindImageSet = 1);
         void draw(VkCommandBuffer commandBuffer, uint32_t renderFlags = 0, VkPipelineLayout pipelineLayout = VK_NULL_HANDLE, uint32_t bindImageSet = 1);

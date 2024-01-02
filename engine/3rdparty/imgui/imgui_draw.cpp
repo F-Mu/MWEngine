@@ -802,11 +802,11 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
             // Generate the indices to form a number of triangles for each line segment, and the vertices for the line edges
             // This takes points n and n+1 and writes into n+1, with the first point in a closed line being generated from the final one (as n+1 wraps)
             // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
-            unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
+            unsigned int idx1 = _VtxCurrentIdx; // gltfVertex index for start of line segment
             for (int i1 = 0; i1 < count; i1++) // i1 is the first point of the line segment
             {
                 const int i2 = (i1 + 1) == points_count ? 0 : i1 + 1; // i2 is the second point of the line segment
-                const unsigned int idx2 = ((i1 + 1) == points_count) ? _VtxCurrentIdx : (idx1 + (use_texture ? 2 : 3)); // Vertex index for end of segment
+                const unsigned int idx2 = ((i1 + 1) == points_count) ? _VtxCurrentIdx : (idx1 + (use_texture ? 2 : 3)); // gltfVertex index for end of segment
 
                 // Average normals
                 float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;
@@ -898,11 +898,11 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
             // Generate the indices to form a number of triangles for each line segment, and the vertices for the line edges
             // This takes points n and n+1 and writes into n+1, with the first point in a closed line being generated from the final one (as n+1 wraps)
             // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
-            unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
+            unsigned int idx1 = _VtxCurrentIdx; // gltfVertex index for start of line segment
             for (int i1 = 0; i1 < count; i1++) // i1 is the first point of the line segment
             {
                 const int i2 = (i1 + 1) == points_count ? 0 : (i1 + 1); // i2 is the second point of the line segment
-                const unsigned int idx2 = (i1 + 1) == points_count ? _VtxCurrentIdx : (idx1 + 4); // Vertex index for end of segment
+                const unsigned int idx2 = (i1 + 1) == points_count ? _VtxCurrentIdx : (idx1 + 4); // gltfVertex index for end of segment
 
                 // Average normals
                 float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;

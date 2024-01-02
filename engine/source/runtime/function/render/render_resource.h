@@ -25,8 +25,8 @@ namespace MW {
 
         size_t loadMaterial(MaterialSource materialSource);
 
-        RenderTexture getTexture(size_t id);
-
-        RenderMaterial getMaterial(size_t id);
+//        RenderTexture getTexture(size_t id);
+//
+//        RenderMaterial getMaterial(size_t id);
     };
 } // namespace MW

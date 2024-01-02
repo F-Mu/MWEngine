@@ -5,7 +5,6 @@ file(GLOB EDITOR_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/source/*.
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${EDITOR_SOURCES})
 
 add_executable(${TARGET_NAME} ${EDITOR_SOURCES} ${Vulkan_LIBRARY})
-message("${Vulkan_LIBRARY}")
 add_compile_definitions("MW_ROOT_DIR=${BINARY_ROOT_DIR}")
 
 set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD 17 OUTPUT_NAME "MWEditor")

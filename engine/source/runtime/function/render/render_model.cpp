@@ -59,8 +59,7 @@ namespace MW {
         }
     }
 
-    void Texture::fromglTfImage(tinygltf::Image &gltfimage, std::string path, VulkanDevice *device,
-                                VkQueue copyQueue) {
+    void Texture::fromglTfImage(tinygltf::Image &gltfimage, std::string path, VulkanDevice *device) {
         this->device = device;
 
         bool isKtx = false;
@@ -180,7 +179,7 @@ namespace MW {
             vkCmdPipelineBarrier(copyCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr,
                                  0, nullptr, 1, &imageMemoryBarrier);
 
-            device->endSingleTimeCommands(copyCmd, copyQueue);
+            device->endSingleTimeCommands(copyCmd);
             device->destroyVulkanBuffer(stagingBuffer);
 
             // Generate the mip chain (glTF uses jpg and png, so we need to create this manually)
@@ -255,7 +254,7 @@ namespace MW {
                 delete[] buffer;
             }
 
-            device->endSingleTimeCommands(blitCmd, copyQueue);
+            device->endSingleTimeCommands(blitCmd);
         } else {
             // Texture is stored in an external ktx file
             std::string filename = path + "/" + gltfimage.uri;
@@ -263,26 +262,14 @@ namespace MW {
             ktxTexture *ktxTexture;
 
             ktxResult result = KTX_SUCCESS;
-#if defined(__ANDROID__)
-            AAsset* asset = AAssetManager_open(androidApp->activity->assetManager, filename.c_str(), AASSET_MODE_STREAMING);
-            if (!asset) {
-                vks::tools::exitFatal("Could not load texture from " + filename + "\n\nMake sure the assets submodule has been checked out and is up-to-date.", -1);
-            }
-            size_t size = AAsset_getLength(asset);
-            assert(size > 0);
-            ktx_uint8_t* textureData = new ktx_uint8_t[size];
-            AAsset_read(asset, textureData, size);
-            AAsset_close(asset);
-            result = ktxTexture_CreateFromMemory(textureData, size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktxTexture);
-            delete[] textureData;
-#else
+
             if (!fileExists(filename)) {
                 exitFatal("Could not load texture from " + filename +
                           "\n\nMake sure the assets submodule has been checked out and is up-to-date.", -1);
             }
             result = ktxTexture_CreateFromNamedFile(filename.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
                                                     &ktxTexture);
-#endif
+
             assert(result == KTX_SUCCESS);
 
             this->device = device;
@@ -353,7 +340,7 @@ namespace MW {
                                    static_cast<uint32_t>(bufferCopyRegions.size()), bufferCopyRegions.data());
             device->transitionImageLayout(copyCmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
-            device->endSingleTimeCommands(copyCmd, copyQueue);
+            device->endSingleTimeCommands(copyCmd);
             this->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
             device->destroyVulkanBuffer(stagingBuffer);
@@ -517,53 +504,53 @@ namespace MW {
 	glTF default vertex layout with easy Vulkan mapping functions
 */
 
-    VkVertexInputBindingDescription Vertex::vertexInputBindingDescription;
-    std::vector<VkVertexInputAttributeDescription> Vertex::vertexInputAttributeDescriptions;
-    VkPipelineVertexInputStateCreateInfo Vertex::pipelineVertexInputStateCreateInfo;
+    VkVertexInputBindingDescription gltfVertex::vertexInputBindingDescription;
+    std::vector<VkVertexInputAttributeDescription> gltfVertex::vertexInputAttributeDescriptions;
+    VkPipelineVertexInputStateCreateInfo gltfVertex::pipelineVertexInputStateCreateInfo;
 
-    VkVertexInputBindingDescription Vertex::inputBindingDescription(uint32_t binding) {
-        return VkVertexInputBindingDescription({binding, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX});
+    VkVertexInputBindingDescription gltfVertex::inputBindingDescription(uint32_t binding) {
+        return VkVertexInputBindingDescription({binding, sizeof(gltfVertex), VK_VERTEX_INPUT_RATE_VERTEX});
     }
 
     VkVertexInputAttributeDescription
-    Vertex::inputAttributeDescription(uint32_t binding, uint32_t location, VertexComponent component) {
+    gltfVertex::inputAttributeDescription(uint32_t binding, uint32_t location, VertexComponent component) {
         switch (component) {
             case VertexComponent::Position:
                 return VkVertexInputAttributeDescription(
-                        {location, binding, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>offsetof(Vertex, pos)});
+                        {location, binding, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(gltfVertex, pos))});
             case VertexComponent::Normal:
                 return VkVertexInputAttributeDescription(
-                        {location, binding, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>offsetof(Vertex, normal)});
+                        {location, binding, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(gltfVertex, normal))});
             case VertexComponent::UV:
                 return VkVertexInputAttributeDescription(
-                        {location, binding, VK_FORMAT_R32G32_SFLOAT, static_cast<uint32_t>offsetof(Vertex, uv)});
+                        {location, binding, VK_FORMAT_R32G32_SFLOAT, static_cast<uint32_t>(offsetof(gltfVertex, uv))});
             case VertexComponent::Color:
                 return VkVertexInputAttributeDescription(
                         {location, binding, VK_FORMAT_R32G32B32A32_SFLOAT,
-                         static_cast<uint32_t>offsetof(Vertex, color)});
+                         static_cast<uint32_t>(offsetof(gltfVertex, color))});
             case VertexComponent::Tangent:
                 return VkVertexInputAttributeDescription(
                         {location, binding, VK_FORMAT_R32G32B32A32_SFLOAT,
-                         static_cast<uint32_t>offsetof(Vertex, tangent)});
+                         static_cast<uint32_t>(offsetof(gltfVertex, tangent))});
             case VertexComponent::Joint0:
                 return VkVertexInputAttributeDescription(
                         {location, binding, VK_FORMAT_R32G32B32A32_SFLOAT,
-                         static_cast<uint32_t>offsetof(Vertex, joint0)});
+                         static_cast<uint32_t>(offsetof(gltfVertex, joint0))});
             case VertexComponent::Weight0:
                 return VkVertexInputAttributeDescription(
                         {location, binding, VK_FORMAT_R32G32B32A32_SFLOAT,
-                         static_cast<uint32_t>offsetof(Vertex, weight0)});
+                         static_cast<uint32_t>(offsetof(gltfVertex, weight0))});
             default:
                 return VkVertexInputAttributeDescription({});
         }
     }
 
     std::vector<VkVertexInputAttributeDescription>
-    Vertex::inputAttributeDescriptions(uint32_t binding, const std::vector<VertexComponent> components) {
+    gltfVertex::inputAttributeDescriptions(uint32_t binding, const std::vector<VertexComponent> components) {
         std::vector<VkVertexInputAttributeDescription> result;
         uint32_t location = 0;
         for (VertexComponent component: components) {
-            result.push_back(Vertex::inputAttributeDescription(binding, location, component));
+            result.push_back(gltfVertex::inputAttributeDescription(binding, location, component));
             location++;
         }
         return result;
@@ -571,14 +558,14 @@ namespace MW {
 
 /** @brief Returns the default pipeline vertex input state create info structure for the requested vertex components */
     VkPipelineVertexInputStateCreateInfo *
-    Vertex::getPipelineVertexInputState(const std::vector<VertexComponent> components) {
-        vertexInputBindingDescription = Vertex::inputBindingDescription(0);
-        Vertex::vertexInputAttributeDescriptions = Vertex::inputAttributeDescriptions(0, components);
+    gltfVertex::getPipelineVertexInputState(const std::vector<VertexComponent> components) {
+        vertexInputBindingDescription = gltfVertex::inputBindingDescription(0);
+        gltfVertex::vertexInputAttributeDescriptions = gltfVertex::inputAttributeDescriptions(0, components);
         pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         pipelineVertexInputStateCreateInfo.vertexBindingDescriptionCount = 1;
-        pipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = &Vertex::vertexInputBindingDescription;
-        pipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(Vertex::vertexInputAttributeDescriptions.size());
-        pipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = Vertex::vertexInputAttributeDescriptions.data();
+        pipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = &gltfVertex::vertexInputBindingDescription;
+        pipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(gltfVertex::vertexInputAttributeDescriptions.size());
+        pipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = gltfVertex::vertexInputAttributeDescriptions.data();
         return &pipelineVertexInputStateCreateInfo;
     }
 
@@ -590,7 +577,7 @@ namespace MW {
         return nullptr;
     }
 
-    void Model::createEmptyTexture(VkQueue transferQueue) {
+    void Model::createEmptyTexture() {
         emptyTexture.device = device;
         emptyTexture.width = 1;
         emptyTexture.height = 1;
@@ -646,7 +633,7 @@ namespace MW {
                                &bufferCopyRegion);
         device->transitionImageLayout(copyCmd, emptyTexture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresourceRange);
-        device->endSingleTimeCommands(copyCmd, transferQueue);
+        device->endSingleTimeCommands(copyCmd);
         emptyTexture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         // Clean up staging resources
@@ -706,7 +693,7 @@ namespace MW {
 
     void Model::loadNode(Node *parent, const tinygltf::Node &node, uint32_t nodeIndex,
                          const tinygltf::Model &model, std::vector<uint32_t> &indexBuffer,
-                         std::vector<Vertex> &vertexBuffer, float globalscale) {
+                         std::vector<gltfVertex> &vertexBuffer, float globalscale) {
         Node *newNode = new Node{};
         newNode->index = nodeIndex;
         newNode->parent = parent;
@@ -841,7 +828,7 @@ namespace MW {
                     vertexCount = static_cast<uint32_t>(posAccessor.count);
 
                     for (size_t v = 0; v < posAccessor.count; v++) {
-                        Vertex vert{};
+                        gltfVertex vert{};
                         vert.pos = glm::vec4(glm::make_vec3(&bufferPos[v * 3]), 1.0f);
                         vert.normal = glm::normalize(
                                 glm::vec3(bufferNormals ? glm::make_vec3(&bufferNormals[v * 3]) : glm::vec3(0.0f)));
@@ -958,15 +945,15 @@ namespace MW {
         }
     }
 
-    void Model::loadImages(tinygltf::Model &gltfModel, VulkanDevice *device, VkQueue transferQueue) {
+    void Model::loadImages(tinygltf::Model &gltfModel, VulkanDevice *device) {
         for (tinygltf::Image &image: gltfModel.images) {
             Texture texture;
-            texture.fromglTfImage(image, path, device, transferQueue);
+            texture.fromglTfImage(image, path, device);
             texture.index = static_cast<uint32_t>(textures.size());
             textures.push_back(texture);
         }
         // Create an empty texture to be used for empty material images
-        createEmptyTexture(transferQueue);
+        createEmptyTexture();
     }
 
     void Model::loadMaterials(tinygltf::Model &gltfModel) {
@@ -1139,8 +1126,7 @@ namespace MW {
         }
     }
 
-    void Model::loadFromFile(std::string filename, VulkanDevice *device, VkQueue transferQueue,
-                             uint32_t fileLoadingFlags, float scale) {
+    void Model::loadFromFile(std::string filename, VulkanDevice *device,uint32_t fileLoadingFlags, float scale) {
         tinygltf::Model gltfModel;
         tinygltf::TinyGLTF gltfContext;
         if (fileLoadingFlags & FileLoadingFlags::DontLoadImages) {
@@ -1168,11 +1154,11 @@ namespace MW {
         bool fileLoaded = gltfContext.LoadASCIIFromFile(&gltfModel, &error, &warning, filename);
 
         std::vector<uint32_t> indexBuffer;
-        std::vector<Vertex> vertexBuffer;
+        std::vector<gltfVertex> vertexBuffer;
 
         if (fileLoaded) {
             if (!(fileLoadingFlags & FileLoadingFlags::DontLoadImages)) {
-                loadImages(gltfModel, device, transferQueue);
+                loadImages(gltfModel, device);
             }
             loadMaterials(gltfModel);
             const tinygltf::Scene &scene = gltfModel.scenes[gltfModel.defaultScene > -1 ? gltfModel.defaultScene : 0];
@@ -1213,7 +1199,7 @@ namespace MW {
                     const glm::mat4 localMatrix = node->getMatrix();
                     for (Primitive *primitive: node->mesh->primitives) {
                         for (uint32_t i = 0; i < primitive->vertexCount; i++) {
-                            Vertex &vertex = vertexBuffer[primitive->firstVertex + i];
+                            gltfVertex &vertex = vertexBuffer[primitive->firstVertex + i];
                             // Pre-transform vertex positions by node-hierarchy
                             if (preTransform) {
                                 vertex.pos = glm::vec3(localMatrix * glm::vec4(vertex.pos, 1.0f));
@@ -1241,7 +1227,7 @@ namespace MW {
             }
         }
 
-        size_t vertexBufferSize = vertexBuffer.size() * sizeof(Vertex);
+        size_t vertexBufferSize = vertexBuffer.size() * sizeof(gltfVertex);
         size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
         indices.count = static_cast<uint32_t>(indexBuffer.size());
         vertices.count = static_cast<uint32_t>(vertexBuffer.size());
@@ -1251,25 +1237,23 @@ namespace MW {
         VulkanBuffer vertexStaging, indexStaging;
 
         // Create staging buffers
-        // Vertex data
+        // gltfVertex data
         device->CreateBuffer(
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                vertexStaging,
                 vertexBufferSize,
-                &vertexStaging.buffer,
-                &vertexStaging.memory,
                 vertexBuffer.data());
         // Index data
         device->CreateBuffer(
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                indexStaging,
                 indexBufferSize,
-                &indexStaging.buffer,
-                &indexStaging.memory,
                 indexBuffer.data());
 
         // Create device local buffers
-        // Vertex buffer
+        // gltfVertex buffer
         device->CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | memoryPropertyFlags,
                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                              vertices.buffer,
@@ -1291,7 +1275,7 @@ namespace MW {
         copyRegion.size = indexBufferSize;
         vkCmdCopyBuffer(copyCmd, indexStaging.buffer, indices.buffer.buffer, 1, &copyRegion);
 
-        device->endSingleTimeCommands(copyCmd, transferQueue);
+        device->endSingleTimeCommands(copyCmd);
         device->destroyVulkanBuffer(vertexStaging);
         device->destroyVulkanBuffer(indexStaging);
 

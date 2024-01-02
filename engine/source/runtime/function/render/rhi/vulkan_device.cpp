@@ -560,9 +560,7 @@ namespace MW {
         bufferInfo.usage = usage;
         bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-        if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create vertex buffer!");
-        }
+        VK_CHECK_RESULT(vkCreateBuffer(device, &bufferInfo, nullptr, &buffer));
 
         VkMemoryRequirements memRequirements;
         vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
@@ -630,28 +628,19 @@ namespace MW {
     void VulkanDevice::CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags,
                                     VulkanBuffer &buffer,
                                     VkDeviceSize size, void *data) {
-        CreateBuffer(usageFlags, memoryPropertyFlags, size, buffer.buffer, buffer.memory, data);
-        buffer.bufferSize = size;
-        buffer.usageFlags = usageFlags;
-        buffer.memoryPropertyFlags = memoryPropertyFlags;
-    }
-
-
-    void VulkanDevice::CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags,
-                                    VkDeviceSize size, VkBuffer *buffer, VkDeviceMemory *memory, void *data) {
         // Create the buffer handle
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;
         bufferInfo.usage = usageFlags;
 
-        VK_CHECK_RESULT(vkCreateBuffer(device, &bufferInfo, nullptr, buffer));
+        VK_CHECK_RESULT(vkCreateBuffer(device, &bufferInfo, nullptr, &buffer.buffer));
 
         // Create the memory backing up the buffer handle
         VkMemoryRequirements memReqs;
         VkMemoryAllocateInfo memAllocInfo{};
         memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        vkGetBufferMemoryRequirements(device, *buffer, &memReqs);
+        vkGetBufferMemoryRequirements(device, buffer.buffer, &memReqs);
         memAllocInfo.allocationSize = memReqs.size;
         // Find a memory type index that fits the properties of the buffer
         memAllocInfo.memoryTypeIndex = findMemoryType(memReqs.memoryTypeBits, memoryPropertyFlags);
@@ -662,25 +651,28 @@ namespace MW {
             allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
             memAllocInfo.pNext = &allocFlagsInfo;
         }
-        VK_CHECK_RESULT(vkAllocateMemory(device, &memAllocInfo, nullptr, memory));
+        VK_CHECK_RESULT(vkAllocateMemory(device, &memAllocInfo, nullptr, &buffer.memory));
 
         // If a pointer to the buffer data has been passed, map the buffer and copy over the data
         if (data != nullptr) {
             void *mapped;
-            VK_CHECK_RESULT(vkMapMemory(device, *memory, 0, size, 0, &mapped));
+            VK_CHECK_RESULT(vkMapMemory(device, buffer.memory, 0, size, 0, &mapped));
             memcpy(mapped, data, size);
             // If host coherency hasn't been requested, do a manual flush to make writes visible
             if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
                 VkMappedMemoryRange mappedMemoryRange{};
                 mappedMemoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-                mappedMemoryRange.memory = *memory;
+                mappedMemoryRange.memory = buffer.memory;
                 mappedMemoryRange.offset = 0;
                 mappedMemoryRange.size = size;
                 vkFlushMappedMemoryRanges(device, 1, &mappedMemoryRange);
             }
-            vkUnmapMemory(device, *memory);
+            vkUnmapMemory(device, buffer.memory);
         }
-        VK_CHECK_RESULT(vkBindBufferMemory(device, *buffer, *memory, 0));
+        VK_CHECK_RESULT(vkBindBufferMemory(device, buffer.buffer, buffer.memory, 0));
+        buffer.bufferSize = size;
+        buffer.usageFlags = usageFlags;
+        buffer.memoryPropertyFlags = memoryPropertyFlags;
     }
 
     void VulkanDevice::flushBuffer(VulkanBuffer &buffer, VkDeviceSize size, VkDeviceSize offset) {
@@ -1615,7 +1607,7 @@ namespace MW {
                     barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
                 }
                 barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-                dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+                dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
                 break;
             default:
                 // Other source layouts aren't handled (yet)

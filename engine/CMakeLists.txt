@@ -33,8 +33,6 @@ add_subdirectory(source/runtime)
 add_subdirectory(source/meta_parser)
 add_subdirectory(3rdparty)
 
-add_definitions(-DASSET_DIR=\"${ENGINE_ROOT_DIR}/\")
-
 set(CODEGEN_TARGET "MWPreCompile")
 include(source/precompile/precompile.cmake)
 set_target_properties("${CODEGEN_TARGET}" PROPERTIES FOLDER "Engine")

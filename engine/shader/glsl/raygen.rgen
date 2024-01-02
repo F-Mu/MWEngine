@@ -14,23 +14,48 @@ layout(binding = 2, set = 0) uniform CameraProperties
     float _padding_camera_V;
     vec3 camera_W;
     float _padding_camera_W;
+	vec4 lightPos;
 } cam; //from Optix
-
-layout(location = 0) rayPayloadEXT vec3 hitValue;
-
+struct RayPayload {
+	vec3 color;
+	float distance;
+	vec3 normal;
+	float reflector;
+};
+layout(location = 0) rayPayloadEXT RayPayload rayPayload;
+layout (constant_id = 0) const int MAX_RECURSION = 0;
 void main() 
 {
 	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 	const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
 	vec2 d = inUV * 2.0 - 1.0;
-	vec3 ray_direction = normalize(d.x * cam.camera_U + d.y * cam.camera_V + cam.camera_W);
-    vec3 ray_origin    = cam.camera_position;
-	float tmin = 0.001;
-	float tmax = 10000.0;
+	vec3 direction = normalize(d.x * cam.camera_U + d.y * cam.camera_V + cam.camera_W);
+    vec3 origin    = cam.camera_position;
+	uint rayFlags = gl_RayFlagsOpaqueEXT;
 
-    hitValue = vec3(0.0);
+    uint cullMask = 0xff;
+    float tmin = 0.001;
+    float tmax = 10000.0;
 
-    traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, ray_origin, tmin, ray_direction, tmax, 0);
+    vec3 color = vec3(0.0);
 
-	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hitValue, 0.0));
+    for (int i = 0; i < MAX_RECURSION; i++) {
+        traceRayEXT(topLevelAS, rayFlags, cullMask, 0, 0, 0, origin, tmin, direction, tmax, 0);
+        vec3 hitColor = rayPayload.color;
+
+        if (rayPayload.distance < 0.0f) {
+            color += hitColor;
+            break;
+        } else if (rayPayload.reflector == 1.0f) {
+            const vec3 hitPos = origin + direction * rayPayload.distance;
+            origin = hitPos + rayPayload.normal * 0.001f;
+            direction = reflect(direction, rayPayload.normal);
+        } else {
+            color += hitColor;
+            break;
+        }
+
+    }
+
+    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(color, 0.0));
 }

@@ -117,25 +117,25 @@ namespace MW {
 
     void InputSystem::processKeyCommand() {
         std::shared_ptr camera = engineGlobalContext.renderSystem->getRenderCamera();
-        Quaternion rotate = camera->getRotation().inverse();
+//        Quaternion rotate = camera->getRotation().inverse();
         Vector3 deltaPos(0, 0, 0);
 
-        if ((unsigned int) KeyCommand::forward & keyCommand) {
-            deltaPos += rotate * Vector3{0, cameraSpeed, 0};
-        }
-        if ((unsigned int) KeyCommand::backward & keyCommand) {
-            deltaPos += rotate * Vector3{0, -cameraSpeed, 0};
-        }
-        if ((unsigned int) KeyCommand::left & keyCommand) {
-            deltaPos += rotate * Vector3{-cameraSpeed, 0, 0};
-        }
-        if ((unsigned int) KeyCommand::right & keyCommand) {
-            deltaPos += rotate * Vector3{cameraSpeed, 0, 0};
-        }
         if ((unsigned int) KeyCommand::up & keyCommand) {
-            deltaPos += Vector3{0, 0, cameraSpeed};
+            deltaPos += Vector3{0, cameraSpeed, 0};
         }
         if ((unsigned int) KeyCommand::down & keyCommand) {
+            deltaPos += Vector3{0, -cameraSpeed, 0};
+        }
+        if ((unsigned int) KeyCommand::left & keyCommand) {
+            deltaPos += Vector3{-cameraSpeed, 0, 0};
+        }
+        if ((unsigned int) KeyCommand::right & keyCommand) {
+            deltaPos += Vector3{cameraSpeed, 0, 0};
+        }
+        if ((unsigned int) KeyCommand::forward & keyCommand) {
+            deltaPos += Vector3{0, 0, cameraSpeed};
+        }
+        if ((unsigned int) KeyCommand::backward & keyCommand) {
             deltaPos += Vector3{0, 0, -cameraSpeed};
         }
 

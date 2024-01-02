@@ -20,25 +20,26 @@ namespace MW {
     void RayTracingCameraPass::createBottomLevelAccelerationStructure() {
         // Instead of a simple triangle, we'll be loading a more complex scene for this example
         // The shaders are accessing the vertex and index buffers of the scene, so the proper usage flag has to be set on the vertex and index buffers for the scene
-        memoryPropertyFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        const uint32_t glTFLoadingFlags = FileLoadingFlags::PreTransformVertices | FileLoadingFlags::PreMultiplyVertexColors | vkglTF::FileLoadingFlags::FlipY;
-        scene.loadFromFile(getAssetPath() + "models/reflection_scene.gltf", device, device->qu, glTFLoadingFlags);
+        memoryPropertyFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        const uint32_t glTFLoadingFlags =
+                FileLoadingFlags::PreTransformVertices | FileLoadingFlags::PreMultiplyVertexColors |
+                FileLoadingFlags::FlipY;
+        scene.loadFromFile(getAssetPath() + "models/reflection_scene.gltf", device.get(), glTFLoadingFlags);
 
         VkDeviceOrHostAddressConstKHR vertexBufferDeviceAddress{};
         VkDeviceOrHostAddressConstKHR indexBufferDeviceAddress{};
 
-        vertexBufferDeviceAddress.deviceAddress = getBufferDeviceAddress(scene.vertices.buffer);
-        indexBufferDeviceAddress.deviceAddress = getBufferDeviceAddress(scene.indices.buffer);
+        vertexBufferDeviceAddress.deviceAddress = device->getBufferDeviceAddress(scene.vertices.buffer.buffer);
+        indexBufferDeviceAddress.deviceAddress = device->getBufferDeviceAddress(scene.indices.buffer.buffer);
 
         uint32_t numTriangles = static_cast<uint32_t>(scene.indices.count) / 3;
 
-        VkDeviceOrHostAddressConstKHR vertexBufferDeviceAddress{};
-        VkDeviceOrHostAddressConstKHR indexBufferDeviceAddress{};
-        VkDeviceOrHostAddressConstKHR transformBufferDeviceAddress{};
+//        VkDeviceOrHostAddressConstKHR transformBufferDeviceAddress{};
 
-        vertexBufferDeviceAddress.deviceAddress = device->getBufferDeviceAddress(vertexBuffer.buffer);
-        indexBufferDeviceAddress.deviceAddress = device->getBufferDeviceAddress(indexBuffer.buffer);
-        transformBufferDeviceAddress.deviceAddress = device->getBufferDeviceAddress(transformBuffer.buffer);
+//        vertexBufferDeviceAddress.deviceAddress = device->getBufferDeviceAddress(vertexBuffer.buffer);
+//        indexBufferDeviceAddress.deviceAddress = device->getBufferDeviceAddress(indexBuffer.buffer);
+//        transformBufferDeviceAddress.deviceAddress = device->getBufferDeviceAddress(transformBuffer.buffer);
 
         // Build
         VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
@@ -49,12 +50,12 @@ namespace MW {
         accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
         accelerationStructureGeometry.geometry.triangles.vertexData = vertexBufferDeviceAddress;
         accelerationStructureGeometry.geometry.triangles.maxVertex = 3;
-        accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vertex);
+        accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(gltfVertex);
         accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
         accelerationStructureGeometry.geometry.triangles.indexData = indexBufferDeviceAddress;
         accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = 0;
         accelerationStructureGeometry.geometry.triangles.transformData.hostAddress = nullptr;
-        accelerationStructureGeometry.geometry.triangles.transformData = transformBufferDeviceAddress;
+//        accelerationStructureGeometry.geometry.triangles.transformData = transformBufferDeviceAddress;
 
         // Get size info
         VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{};
@@ -306,7 +307,7 @@ namespace MW {
         accelerationStructureLayoutBinding.binding = 0;
         accelerationStructureLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         accelerationStructureLayoutBinding.descriptorCount = 1;
-        accelerationStructureLayoutBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+        accelerationStructureLayoutBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
         VkDescriptorSetLayoutBinding resultImageLayoutBinding{};
         resultImageLayoutBinding.binding = 1;
@@ -316,13 +317,27 @@ namespace MW {
 
         VkDescriptorSetLayoutBinding uniformBufferBinding{};
         uniformBufferBinding.binding = 2;
-        uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ;
         uniformBufferBinding.descriptorCount = 1;
-        uniformBufferBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+        uniformBufferBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR| VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
+
+        VkDescriptorSetLayoutBinding vertexBufferBinding{};
+        vertexBufferBinding.binding = 3;
+        vertexBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        vertexBufferBinding.descriptorCount = 1;
+        vertexBufferBinding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+
+        VkDescriptorSetLayoutBinding indexBufferBinding{};
+        indexBufferBinding.binding = 4;
+        indexBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        indexBufferBinding.descriptorCount = 1;
+        indexBufferBinding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
         std::vector<VkDescriptorSetLayoutBinding> bindings({accelerationStructureLayoutBinding,
                                                             resultImageLayoutBinding,
-                                                            uniformBufferBinding
+                                                            uniformBufferBinding,
+                                                            vertexBufferBinding,
+                                                            indexBufferBinding
                                                            });
 
         VkDescriptorSetLayoutCreateInfo descriptorSetlayoutCI{};
@@ -346,8 +361,10 @@ namespace MW {
         bufferInfo.buffer = cameraUniformBuffer.buffer;
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(CameraUVWObject);
+        VkDescriptorBufferInfo vertexBufferDescriptor{ scene.vertices.buffer.buffer, 0, VK_WHOLE_SIZE };
+        VkDescriptorBufferInfo indexBufferDescriptor{ scene.indices.buffer.buffer, 0, VK_WHOLE_SIZE };
 
-        std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         // The specialized acceleration structure descriptor has to be chained
         descriptorWrites[0].pNext = &descriptorAccelerationStructureInfo;
@@ -369,6 +386,20 @@ namespace MW {
         descriptorWrites[2].dstBinding = 2;
         descriptorWrites[2].pBufferInfo = &bufferInfo;
         descriptorWrites[2].descriptorCount = 1;
+
+        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[3].dstSet = descriptors[0].descriptorSet;
+        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[3].dstBinding = 3;
+        descriptorWrites[3].pBufferInfo = &vertexBufferDescriptor;
+        descriptorWrites[3].descriptorCount = 1;
+
+        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[4].dstSet = descriptors[0].descriptorSet;
+        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[4].dstBinding = 4;
+        descriptorWrites[4].pBufferInfo = &indexBufferDescriptor;
+        descriptorWrites[4].descriptorCount = 1;
         device->UpdateDescriptorSets(static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data());
     }
 
@@ -383,8 +414,12 @@ namespace MW {
 
         // Ray generation group
         {
-            auto raygenShaderModule = device->CreateShaderModule(RAYGEN_RGEN);
+            VkSpecializationMapEntry specializationMapEntry = CreateSpecializationMapEntry(0, 0, sizeof(uint32_t));
+            uint32_t maxRecursion = 4;
+            VkSpecializationInfo specializationInfo = CreateSpecializationInfo(1, &specializationMapEntry, sizeof(maxRecursion), &maxRecursion);
 
+            auto raygenShaderModule = device->CreateShaderModule(RAYGEN_RGEN);
+            shaderStages[0].pSpecializationInfo = &specializationInfo;
             shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
             shaderStages[0].stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
             shaderStages[0].module = raygenShaderModule;

@@ -19,6 +19,8 @@ namespace MW{
         float _padding_camera_V;
         Vector3 camera_W;
         float _padding_camera_W;
+        Vector4 lightPos;
+        int32_t vertexSize;
     };
 
     struct MaterialSource {

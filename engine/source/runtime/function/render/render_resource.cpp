@@ -13,11 +13,11 @@ namespace MW {
         return 0;
     }
 
-    RenderTexture RenderResource::getTexture(size_t id) {
-        return RenderTexture();
-    }
-
-    RenderMaterial RenderResource::getMaterial(size_t id) {
-        return RenderMaterial();
-    }
+//    RenderTexture RenderResource::getTexture(size_t id) {
+//        return RenderTexture();
+//    }
+//
+//    RenderMaterial RenderResource::getMaterial(size_t id) {
+//        return RenderMaterial();
+//    }
 }

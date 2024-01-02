@@ -221,11 +221,6 @@ namespace MW {
         CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VulkanBuffer &buffer,
                      VkDeviceSize size, void *data = nullptr);
 
-        void
-        CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize size,
-                     VkBuffer *buffer, VkDeviceMemory *memory, void *data = nullptr);
-
-
         void transitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout,
                                    bool useCurrentCommandBuffer = false,
                                    VkImageSubresourceRange subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1},

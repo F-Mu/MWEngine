@@ -8,11 +8,11 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 **NOW:**
 
-+ Simple triangle drawing
++ Simple triangle drawing based-on rasterization
 
-+ Simple triangle drawing based on ray-tracing
++ Simple ray-tracing like Optix Sample
 
-+ Ray tracing like Optix Sample
++ gltf model loading
 
 **TODO:**
 
@@ -31,3 +31,5 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 + Fix rasterization MVP
 
 + Fix camera rotation
+
++ Fix Orthogonal Projection

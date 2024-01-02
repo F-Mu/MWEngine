@@ -384,7 +384,7 @@ struct shape_t {
   points_t points;
 };
 
-// Vertex attributes
+// gltfVertex attributes
 struct attrib_t {
   std::vector<real_t> vertices;  // 'v'(xyz)
 
@@ -2940,21 +2940,21 @@ bool LoadObj(attrib_t *attrib, std::vector<shape_t> *shapes,
   if (greatest_v_idx >= static_cast<int>(v.size() / 3)) {
     if (warn) {
       std::stringstream ss;
-      ss << "Vertex indices out of bounds (line " << line_num << ".)\n\n";
+      ss << "gltfVertex indices out of bounds (line " << line_num << ".)\n\n";
       (*warn) += ss.str();
     }
   }
   if (greatest_vn_idx >= static_cast<int>(vn.size() / 3)) {
     if (warn) {
       std::stringstream ss;
-      ss << "Vertex normal indices out of bounds (line " << line_num << ".)\n\n";
+      ss << "gltfVertex normal indices out of bounds (line " << line_num << ".)\n\n";
       (*warn) += ss.str();
     }
   }
   if (greatest_vt_idx >= static_cast<int>(vt.size() / 2)) {
     if (warn) {
       std::stringstream ss;
-      ss << "Vertex texcoord indices out of bounds (line " << line_num << ".)\n\n";
+      ss << "gltfVertex texcoord indices out of bounds (line " << line_num << ".)\n\n";
       (*warn) += ss.str();
     }
   }

@@ -49,11 +49,11 @@ namespace MW {
         static const Vector3 X, Y, Z;
 
         // for ray tracing
-        Vector3 lookAt{0.0f, 0.0f, 1.0f};
+        Vector3 lookAt{10.0f, 0.0f, 10.0f};
         Vector3 lookUp{0.0f, 1.0f, 0.0f};
     };
 
     inline const Vector3 RenderCamera::X = {1.0f, 0.0f, 0.0f};
-    inline const Vector3 RenderCamera::Y = {0.0f, 1.0f, 0.0f};
-    inline const Vector3 RenderCamera::Z = {0.0f, 0.0f, 1.0f};
+    inline const Vector3 RenderCamera::Y = {0.0f, 0.0f, 1.0f};
+    inline const Vector3 RenderCamera::Z = {0.0f, 1.0f, 0.0f};
 }

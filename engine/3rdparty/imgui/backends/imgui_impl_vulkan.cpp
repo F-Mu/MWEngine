@@ -413,7 +413,7 @@ static void ImGui_ImplVulkan_SetupRenderState(ImDrawData* draw_data, VkPipeline 
         vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, bd->PipelineLayout, 0, 1, desc_set, 0, NULL);
     }
 
-    // Bind Vertex And Index Buffer:
+    // Bind gltfVertex And Index Buffer:
     if (draw_data->TotalVtxCount > 0)
     {
         VkBuffer vertex_buffers[1] = { rb->VertexBuffer };

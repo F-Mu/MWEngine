@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <fstream>
+#include <vulkan/vulkan.h>
+
 namespace MW {
     inline VkDescriptorSetLayoutBinding CreateDescriptorSetLayoutBinding(
             VkDescriptorType type,
@@ -15,37 +17,37 @@ namespace MW {
         setLayoutBinding.descriptorCount = descriptorCount;
         return setLayoutBinding;
     }
-    const std::string getAssetPath()
-    {
-#if defined(ASSET_DIR)
-        return ASSET_DIR;
-#else
-        return "./../../../../assets/";
-#endif
-    }
-    inline VkImageCreateInfo CreateImageCreateInfo()
-    {
-        VkImageCreateInfo imageCreateInfo {};
+
+    inline VkImageCreateInfo CreateImageCreateInfo() {
+        VkImageCreateInfo imageCreateInfo{};
         imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         return imageCreateInfo;
     }
-
-    bool fileExists(const std::string &filename)
+    /** @brief Initialize a map entry for a shader specialization constant */
+    inline VkSpecializationMapEntry CreateSpecializationMapEntry(uint32_t constantID, uint32_t offset, size_t size)
     {
-        std::ifstream f(filename.c_str());
-        return !f.fail();
+        VkSpecializationMapEntry specializationMapEntry{};
+        specializationMapEntry.constantID = constantID;
+        specializationMapEntry.offset = offset;
+        specializationMapEntry.size = size;
+        return specializationMapEntry;
+    }
+    /** @brief Initialize a specialization constant info structure to pass to a shader stage */
+    inline VkSpecializationInfo CreateSpecializationInfo(uint32_t mapEntryCount, const VkSpecializationMapEntry* mapEntries, size_t dataSize, const void* data)
+    {
+        VkSpecializationInfo specializationInfo{};
+        specializationInfo.mapEntryCount = mapEntryCount;
+        specializationInfo.pMapEntries = mapEntries;
+        specializationInfo.dataSize = dataSize;
+        specializationInfo.pData = data;
+        return specializationInfo;
     }
 
-    void exitFatal(const std::string& message, int32_t exitCode)
-    {
-        std::cerr << message << "\n";
-        exit(exitCode);
-    }
+    const std::string getAssetPath();
 
-    void exitFatal(const std::string& message, VkResult resultCode)
-    {
-        exitFatal(message, (int32_t)resultCode);
-    }
+    bool fileExists(const std::string &filename);
+
+    void exitFatal(const std::string &message, int32_t exitCode);
     class VulkanUtil {
     public:
         static uint32_t alignedSize(uint32_t value, uint32_t alignment);

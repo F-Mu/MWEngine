@@ -3,11 +3,16 @@
 //std
 #include <cassert>
 #include <limits>
+#include <iostream>eeee
 
 namespace MW {
     void RenderCamera::move(Vector3 delta) {
-        position += delta;
-        lookAt += delta;
+        Vector3 forward = (lookAt - position).normalisedCopy();
+        Vector3 up = Z;
+        Vector3 left = forward.crossProduct(up);
+        Vector3 dir = left * delta.x + up * delta.y + forward * delta.z;
+        position += dir;
+        lookAt += dir;
     }
 
     Matrix4x4 RenderCamera::getViewMatrix() const {
@@ -37,7 +42,7 @@ namespace MW {
         yaw.fromAngleAxis(Radian(delta.y), Z);
         rotation = pitch * rotation * yaw;
         invRotation = rotation.conjugate();
-        lookAt = invRotation * lookAt;
+        lookAt = rotation * lookAt ;
     }
 
     void RenderCamera::setAspect(float as) {
