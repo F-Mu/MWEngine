@@ -630,19 +630,28 @@ namespace MW {
     void VulkanDevice::CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags,
                                     VulkanBuffer &buffer,
                                     VkDeviceSize size, void *data) {
+        CreateBuffer(usageFlags, memoryPropertyFlags, size, buffer.buffer, buffer.memory, data);
+        buffer.bufferSize = size;
+        buffer.usageFlags = usageFlags;
+        buffer.memoryPropertyFlags = memoryPropertyFlags;
+    }
+
+
+    void VulkanDevice::CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags,
+                                    VkDeviceSize size, VkBuffer *buffer, VkDeviceMemory *memory, void *data) {
         // Create the buffer handle
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;
         bufferInfo.usage = usageFlags;
 
-        VK_CHECK_RESULT(vkCreateBuffer(device, &bufferInfo, nullptr, &buffer.buffer));
+        VK_CHECK_RESULT(vkCreateBuffer(device, &bufferInfo, nullptr, buffer));
 
         // Create the memory backing up the buffer handle
         VkMemoryRequirements memReqs;
         VkMemoryAllocateInfo memAllocInfo{};
         memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        vkGetBufferMemoryRequirements(device, buffer.buffer, &memReqs);
+        vkGetBufferMemoryRequirements(device, *buffer, &memReqs);
         memAllocInfo.allocationSize = memReqs.size;
         // Find a memory type index that fits the properties of the buffer
         memAllocInfo.memoryTypeIndex = findMemoryType(memReqs.memoryTypeBits, memoryPropertyFlags);
@@ -653,22 +662,25 @@ namespace MW {
             allocFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT_KHR;
             memAllocInfo.pNext = &allocFlagsInfo;
         }
-        VK_CHECK_RESULT(vkAllocateMemory(device, &memAllocInfo, nullptr, &buffer.memory));
-
-        buffer.bufferSize = size;
-        buffer.usageFlags = usageFlags;
-        buffer.memoryPropertyFlags = memoryPropertyFlags;
+        VK_CHECK_RESULT(vkAllocateMemory(device, &memAllocInfo, nullptr, memory));
 
         // If a pointer to the buffer data has been passed, map the buffer and copy over the data
         if (data != nullptr) {
-            MapMemory(buffer);
-            memcpy(buffer.mapped, data, size);
-            if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
-                flushBuffer(buffer);
-
-            unMapMemory(buffer);
+            void *mapped;
+            VK_CHECK_RESULT(vkMapMemory(device, *memory, 0, size, 0, &mapped));
+            memcpy(mapped, data, size);
+            // If host coherency hasn't been requested, do a manual flush to make writes visible
+            if ((memoryPropertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+                VkMappedMemoryRange mappedMemoryRange{};
+                mappedMemoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+                mappedMemoryRange.memory = *memory;
+                mappedMemoryRange.offset = 0;
+                mappedMemoryRange.size = size;
+                vkFlushMappedMemoryRanges(device, 1, &mappedMemoryRange);
+            }
+            vkUnmapMemory(device, *memory);
         }
-        VK_CHECK_RESULT(vkBindBufferMemory(device, buffer.buffer, buffer.memory, 0));
+        VK_CHECK_RESULT(vkBindBufferMemory(device, *buffer, *memory, 0));
     }
 
     void VulkanDevice::flushBuffer(VulkanBuffer &buffer, VkDeviceSize size, VkDeviceSize offset) {
@@ -706,6 +718,10 @@ namespace MW {
     }
 
     void VulkanDevice::endSingleTimeCommands(VkCommandBuffer commandBuffer) {
+        endSingleTimeCommands(commandBuffer, graphicsQueue);
+    }
+
+    void VulkanDevice::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue) {
         vkEndCommandBuffer(commandBuffer);
 
         VkSubmitInfo submitInfo{};
@@ -713,8 +729,8 @@ namespace MW {
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &commandBuffer;
 
-        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(graphicsQueue);
+        vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+        vkQueueWaitIdle(queue);
 
         vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
     }
@@ -858,6 +874,10 @@ namespace MW {
         vkDestroyImage(device, image, pAllocator);
     }
 
+    void VulkanDevice::DestroySampler(VkSampler sampler, const VkAllocationCallbacks *pAllocator) {
+        vkDestroySampler(device, sampler, pAllocator);
+    }
+
     void VulkanDevice::FreeMemory(VkDeviceMemory deviceMemory, const VkAllocationCallbacks *pAllocator) {
         vkFreeMemory(device, deviceMemory, pAllocator);
     }
@@ -876,6 +896,11 @@ namespace MW {
 
     void VulkanDevice::DestroyShaderModule(VkShaderModule module, const VkAllocationCallbacks *pAllocator) {
         vkDestroyShaderModule(device, module, pAllocator);
+    }
+
+    void VulkanDevice::DestroyDescriptorSetLayout(VkDescriptorSetLayout descriptorSetLayout,
+                                                  const VkAllocationCallbacks *pAllocator) {
+        vkDestroyDescriptorSetLayout(device, descriptorSetLayout, pAllocator);
     }
 
     void VulkanDevice::DestroySwapchainKHR(VkSwapchainKHR swapChain, const VkAllocationCallbacks *pAllocator) {
@@ -1341,9 +1366,9 @@ namespace MW {
         pool_sizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         pool_sizes[1].descriptorCount = 1;
         pool_sizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        pool_sizes[2].descriptorCount = 1;
+        pool_sizes[2].descriptorCount = 1 * maxMaterialCount;
         pool_sizes[3].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        pool_sizes[3].descriptorCount = 1;
+        pool_sizes[3].descriptorCount = 1 * maxMaterialCount;
         pool_sizes[4].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
         pool_sizes[4].descriptorCount = 1;
         pool_sizes[5].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -1357,7 +1382,7 @@ namespace MW {
         pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         pool_info.poolSizeCount = pool_sizes.size();
         pool_info.pPoolSizes = pool_sizes.data();
-        pool_info.maxSets = 2;
+        pool_info.maxSets = 1 + 1 + 1 + maxMaterialCount + 1 + 1 + 1; // +skybox + axis descriptor set
         pool_info.flags = 0U;
 
         VK_CHECK_RESULT(vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptorPool));
@@ -1380,6 +1405,10 @@ namespace MW {
 
     void VulkanDevice::GetPhysicalDeviceFeatures2(VkPhysicalDeviceFeatures2 *pFeatures) {
         vkGetPhysicalDeviceFeatures2(physicalDevice, pFeatures);
+    }
+
+    void VulkanDevice::GetPhysicalDeviceFormatProperties(VkFormat format, VkFormatProperties *pFormatProperties) {
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, pFormatProperties);
     }
 
     void VulkanDevice::createAccelerationStructureBuffer(AccelerationStructure &accelerationStructure,
@@ -1606,5 +1635,4 @@ namespace MW {
     void VulkanDevice::MapMemory(VulkanBuffer &vulkanBuffer, VkDeviceSize size, VkDeviceSize offset) {
         VK_CHECK_RESULT(vkMapMemory(device, vulkanBuffer.memory, offset, size, 0, &vulkanBuffer.mapped));
     }
-
 }

@@ -18,53 +18,19 @@ namespace MW {
     }
 
     void RayTracingCameraPass::createBottomLevelAccelerationStructure() {
-        // Setup vertices for a single triangle
-        struct Vertex {
-            float pos[3];
-        };
-        std::vector<Vertex> vertices = {
-                {{0.5f,  0.5f,  1.0f}},
-                {{-0.5f, 0.5f,  1.0f}},
-                {{0.0f,  -0.5f, 1.0f}}
-        };
+        // Instead of a simple triangle, we'll be loading a more complex scene for this example
+        // The shaders are accessing the vertex and index buffers of the scene, so the proper usage flag has to be set on the vertex and index buffers for the scene
+        memoryPropertyFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        const uint32_t glTFLoadingFlags = FileLoadingFlags::PreTransformVertices | FileLoadingFlags::PreMultiplyVertexColors | vkglTF::FileLoadingFlags::FlipY;
+        scene.loadFromFile(getAssetPath() + "models/reflection_scene.gltf", device, device->qu, glTFLoadingFlags);
 
-        // Setup indices
-        std::vector<uint32_t> indices = {0, 1, 2};
-        indexCount = static_cast<uint32_t>(indices.size());
+        VkDeviceOrHostAddressConstKHR vertexBufferDeviceAddress{};
+        VkDeviceOrHostAddressConstKHR indexBufferDeviceAddress{};
 
-        // Setup identity transform matrix
-        VkTransformMatrixKHR transformMatrix = {
-                1.0f, 0.0f, 0.0f, 0.0f,
-                0.0f, 1.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, 1.0f, 0.0f
-        };
+        vertexBufferDeviceAddress.deviceAddress = getBufferDeviceAddress(scene.vertices.buffer);
+        indexBufferDeviceAddress.deviceAddress = getBufferDeviceAddress(scene.indices.buffer);
 
-        // Create buffers
-        // For the sake of simplicity we won't stage the vertex data to the GPU memory
-        // Vertex buffer
-        device->CreateBuffer(
-                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                vertexBuffer,
-                vertices.size() * sizeof(Vertex),
-                vertices.data());
-        // Index buffer
-        device->CreateBuffer(
-                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                indexBuffer,
-                indices.size() * sizeof(uint32_t),
-                indices.data());
-        // Transform buffer
-        device->CreateBuffer(
-                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                transformBuffer,
-                sizeof(VkTransformMatrixKHR),
-                &transformMatrix);
+        uint32_t numTriangles = static_cast<uint32_t>(scene.indices.count) / 3;
 
         VkDeviceOrHostAddressConstKHR vertexBufferDeviceAddress{};
         VkDeviceOrHostAddressConstKHR indexBufferDeviceAddress{};
@@ -98,7 +64,6 @@ namespace MW {
         accelerationStructureBuildGeometryInfo.geometryCount = 1;
         accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
 
-        const uint32_t numTriangles = 1;
         VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
         accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
         device->GetAccelerationStructureBuildSizesKHR(

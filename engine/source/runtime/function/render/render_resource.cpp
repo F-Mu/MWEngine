@@ -9,7 +9,7 @@ namespace MW {
     }
 
     size_t RenderResource::loadMaterial(MaterialSource materialSource) {
-        
+
         return 0;
     }
 

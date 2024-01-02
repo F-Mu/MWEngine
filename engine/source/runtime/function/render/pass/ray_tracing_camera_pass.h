@@ -1,7 +1,7 @@
 #pragma once
 
 #include "main_camera_pass.h"
-
+#include "function/render/render_model.h"
 namespace MW {
     class RayTracingCameraPass : public MainCameraPass {
     public:
@@ -41,6 +41,7 @@ namespace MW {
         VulkanBuffer hitShaderBindingTable;
         StorageImage storageImage;
         uint32_t indexCount;
+        Model scene;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
     };
 }

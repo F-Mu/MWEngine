@@ -162,6 +162,8 @@ namespace MW {
 
         void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
+        void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue);
+
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
         void copyBufferToImage(
@@ -219,6 +221,10 @@ namespace MW {
         CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VulkanBuffer &buffer,
                      VkDeviceSize size, void *data = nullptr);
 
+        void
+        CreateBuffer(VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize size,
+                     VkBuffer *buffer, VkDeviceMemory *memory, void *data = nullptr);
+
 
         void transitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout,
                                    bool useCurrentCommandBuffer = false,
@@ -243,6 +249,8 @@ namespace MW {
 
         void DestroyImage(VkImage image, const VkAllocationCallbacks *pAllocator = nullptr);
 
+        void DestroySampler(VkSampler sampler, const VkAllocationCallbacks *pAllocator = nullptr);
+
         void FreeMemory(VkDeviceMemory deviceMemory, const VkAllocationCallbacks *pAllocator = nullptr);
 
         void DestroyFramebuffer(VkFramebuffer framebuffer, const VkAllocationCallbacks *pAllocator = nullptr);
@@ -254,6 +262,9 @@ namespace MW {
         void DestroySwapchainKHR(VkSwapchainKHR swapChain, const VkAllocationCallbacks *pAllocator = nullptr);
 
         void DestroyShaderModule(VkShaderModule module, const VkAllocationCallbacks *pAllocator = nullptr);
+
+        void DestroyDescriptorSetLayout(VkDescriptorSetLayout descriptorSetLayout,
+                                        const VkAllocationCallbacks *pAllocator = nullptr);
 
         void recreateSwapChain();
 
@@ -290,6 +301,8 @@ namespace MW {
         void GetPhysicalDeviceProperties2(VkPhysicalDeviceProperties2 *pProperties);
 
         void GetPhysicalDeviceFeatures2(VkPhysicalDeviceFeatures2 *pFeatures);
+
+        void GetPhysicalDeviceFormatProperties(VkFormat format, VkFormatProperties *pFormatProperties);
 
         void createAccelerationStructureBuffer(AccelerationStructure &accelerationStructure,
                                                VkAccelerationStructureBuildSizesInfoKHR buildSizeInfo);
@@ -437,7 +450,7 @@ namespace MW {
         const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
         std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
                                                       VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME};
-
+        uint32_t maxMaterialCount{256};
 
         void createSwapChain();
 

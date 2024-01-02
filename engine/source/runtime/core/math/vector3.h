@@ -15,6 +15,8 @@ namespace MW {
     public:
         Vector3() = default;
 
+        Vector3(float x_) : x{x_}, y{x_}, z{x_} {}
+
         Vector3(float x_, float y_, float z_) : x{x_}, y{y_}, z{z_} {}
 
         explicit Vector3(const float coords[3]) : x{coords[0]}, y{coords[1]}, z{coords[2]} {}

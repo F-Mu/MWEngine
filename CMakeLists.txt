@@ -18,6 +18,6 @@ set(MWENGINE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(CMAKE_INSTALL_PREFIX "${MWENGINE_ROOT_DIR}/bin")
 set(BINARY_ROOT_DIR "${CMAKE_INSTALL_PREFIX}/")
 # 将源代码添加到此项目的可执行文件。
-add_subdirectory(Engine)
+add_subdirectory(engine)
 
 # TODO: 如有需要，请添加测试并安装目标。

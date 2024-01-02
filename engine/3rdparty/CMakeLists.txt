@@ -40,5 +40,10 @@ endif()
 
 if(NOT TARGET glm)
     add_subdirectory(glm)
-    set_target_properties(stb PROPERTIES FOLDER ${third_party_folder}/glm)
+    set_target_properties(glm PROPERTIES FOLDER ${third_party_folder}/glm)
+endif()
+
+if(NOT TARGET ktx)
+    include(ktx.cmake)
+    set_target_properties(ktx PROPERTIES FOLDER ${third_party_folder}/ktx/include)
 endif()
