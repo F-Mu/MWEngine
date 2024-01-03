@@ -2,6 +2,7 @@
 #include "function/render/render_resource.h"
 #include "raygen_rgen.h"
 #include "miss_rmiss.h"
+#include "shadow_rmiss.h"
 #include "closesthit_rchit.h"
 
 namespace MW {
@@ -264,11 +265,11 @@ namespace MW {
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 cameraUniformBuffer,
-                sizeof(renderResource->cameraUVWObject),
-                &renderResource->cameraUVWObject);
+                sizeof(renderResource->rtData),
+                &renderResource->rtData);
         device->MapMemory(cameraUniformBuffer);
 
-        memcpy(cameraUniformBuffer.mapped, &renderResource->cameraUVWObject, sizeof(renderResource->cameraUVWObject));
+        memcpy(cameraUniformBuffer.mapped, &renderResource->rtData, sizeof(renderResource->rtData));
     }
 
     void RayTracingCameraPass::createShaderBindingTable() {
@@ -288,7 +289,7 @@ namespace MW {
         const VkMemoryPropertyFlags memoryUsageFlags =
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         device->CreateBuffer(bufferUsageFlags, memoryUsageFlags, raygenShaderBindingTable, handleSize);
-        device->CreateBuffer(bufferUsageFlags, memoryUsageFlags, missShaderBindingTable, handleSize);
+        device->CreateBuffer(bufferUsageFlags, memoryUsageFlags, missShaderBindingTable, handleSize * 2);
         device->CreateBuffer(bufferUsageFlags, memoryUsageFlags, hitShaderBindingTable, handleSize);
 
         // Copy handles
@@ -297,8 +298,8 @@ namespace MW {
         device->MapMemory(missShaderBindingTable);
         device->MapMemory(hitShaderBindingTable);
         memcpy(raygenShaderBindingTable.mapped, shaderHandleStorage.data(), handleSize);
-        memcpy(missShaderBindingTable.mapped, shaderHandleStorage.data() + handleSizeAligned, handleSize);
-        memcpy(hitShaderBindingTable.mapped, shaderHandleStorage.data() + handleSizeAligned * 2, handleSize);
+        memcpy(missShaderBindingTable.mapped, shaderHandleStorage.data() + handleSizeAligned, handleSize * 2);
+        memcpy(hitShaderBindingTable.mapped, shaderHandleStorage.data() + handleSizeAligned * 3, handleSize);
     }
 
     void RayTracingCameraPass::createDescriptorSets() {
@@ -307,7 +308,8 @@ namespace MW {
         accelerationStructureLayoutBinding.binding = 0;
         accelerationStructureLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         accelerationStructureLayoutBinding.descriptorCount = 1;
-        accelerationStructureLayoutBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+        accelerationStructureLayoutBinding.stageFlags =
+                VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
         VkDescriptorSetLayoutBinding resultImageLayoutBinding{};
         resultImageLayoutBinding.binding = 1;
@@ -317,9 +319,10 @@ namespace MW {
 
         VkDescriptorSetLayoutBinding uniformBufferBinding{};
         uniformBufferBinding.binding = 2;
-        uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ;
+        uniformBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         uniformBufferBinding.descriptorCount = 1;
-        uniformBufferBinding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR| VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
+        uniformBufferBinding.stageFlags =
+                VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
 
         VkDescriptorSetLayoutBinding vertexBufferBinding{};
         vertexBufferBinding.binding = 3;
@@ -360,9 +363,9 @@ namespace MW {
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = cameraUniformBuffer.buffer;
         bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(CameraUVWObject);
-        VkDescriptorBufferInfo vertexBufferDescriptor{ scene.vertices.buffer.buffer, 0, VK_WHOLE_SIZE };
-        VkDescriptorBufferInfo indexBufferDescriptor{ scene.indices.buffer.buffer, 0, VK_WHOLE_SIZE };
+        bufferInfo.range = sizeof(CameraRTData);
+        VkDescriptorBufferInfo vertexBufferDescriptor{scene.vertices.buffer.buffer, 0, VK_WHOLE_SIZE};
+        VkDescriptorBufferInfo indexBufferDescriptor{scene.indices.buffer.buffer, 0, VK_WHOLE_SIZE};
 
         std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -410,25 +413,28 @@ namespace MW {
         pipelineLayoutCI.setLayoutCount = 1;
         pipelineLayoutCI.pSetLayouts = &descriptors[0].layout;
         device->CreatePipelineLayout(&pipelineLayoutCI, &pipelines[0].layout);
-        std::array<VkPipelineShaderStageCreateInfo, 3> shaderStages{};
+        std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
 
         // Ray generation group
         {
             VkSpecializationMapEntry specializationMapEntry = CreateSpecializationMapEntry(0, 0, sizeof(uint32_t));
             uint32_t maxRecursion = 4;
-            VkSpecializationInfo specializationInfo = CreateSpecializationInfo(1, &specializationMapEntry, sizeof(maxRecursion), &maxRecursion);
+            VkSpecializationInfo specializationInfo = CreateSpecializationInfo(1, &specializationMapEntry,
+                                                                               sizeof(maxRecursion), &maxRecursion);
 
             auto raygenShaderModule = device->CreateShaderModule(RAYGEN_RGEN);
-            shaderStages[0].pSpecializationInfo = &specializationInfo;
-            shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            shaderStages[0].stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-            shaderStages[0].module = raygenShaderModule;
-            shaderStages[0].pName = "main";
+            VkPipelineShaderStageCreateInfo shaderStageCreateInfo{};
+            shaderStageCreateInfo.pSpecializationInfo = &specializationInfo;
+            shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            shaderStageCreateInfo.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+            shaderStageCreateInfo.module = raygenShaderModule;
+            shaderStageCreateInfo.pName = "main";
+            shaderStages.emplace_back(shaderStageCreateInfo);
 
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
             shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-            shaderGroup.generalShader = 0;
+            shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
             shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
             shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
@@ -438,36 +444,44 @@ namespace MW {
         // Miss group
         {
             auto missShaderModule = device->CreateShaderModule(MISS_RMISS);
-
-            shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            shaderStages[1].stage = VK_SHADER_STAGE_MISS_BIT_KHR;
-            shaderStages[1].module = missShaderModule;
-            shaderStages[1].pName = "main";
+            VkPipelineShaderStageCreateInfo shaderStageCreateInfo{};
+            shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            shaderStageCreateInfo.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+            shaderStageCreateInfo.module = missShaderModule;
+            shaderStageCreateInfo.pName = "main";
+            shaderStages.emplace_back(shaderStageCreateInfo);
 
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
             shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-            shaderGroup.generalShader = 1;
+            shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
             shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
             shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+            shaderGroups.push_back(shaderGroup);
+
+            missShaderModule = device->CreateShaderModule(SHADOW_RMISS);
+            shaderStageCreateInfo.module = missShaderModule;
+            shaderStages.emplace_back(shaderStageCreateInfo);
+            shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroups.push_back(shaderGroup);
         }
 
         // Closest hit group
         {
             auto closestHitShaderModule = device->CreateShaderModule(CLOSESTHIT_RCHIT);
-
-            shaderStages[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            shaderStages[2].stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-            shaderStages[2].module = closestHitShaderModule;
-            shaderStages[2].pName = "main";
+            VkPipelineShaderStageCreateInfo shaderStageCreateInfo{};
+            shaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            shaderStageCreateInfo.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+            shaderStageCreateInfo.module = closestHitShaderModule;
+            shaderStageCreateInfo.pName = "main";
+            shaderStages.emplace_back(shaderStageCreateInfo);
 
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup{};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
             shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
             shaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
-            shaderGroup.closestHitShader = 2;
+            shaderGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
             shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
             shaderGroups.push_back(shaderGroup);
@@ -483,7 +497,7 @@ namespace MW {
         rayTracingPipelineCI.pStages = shaderStages.data();
         rayTracingPipelineCI.groupCount = static_cast<uint32_t>(shaderGroups.size());
         rayTracingPipelineCI.pGroups = shaderGroups.data();
-        rayTracingPipelineCI.maxPipelineRayRecursionDepth = 1;
+        rayTracingPipelineCI.maxPipelineRayRecursionDepth = 2;
         rayTracingPipelineCI.layout = pipelines[0].layout;
         device->CreateRayTracingPipelinesKHR(&rayTracingPipelineCI, &pipelines[0].pipeline);
     }
@@ -604,6 +618,6 @@ namespace MW {
     }
 
     void RayTracingCameraPass::updateCamera() {
-        memcpy(cameraUniformBuffer.mapped, &renderResource->cameraUVWObject, sizeof(renderResource->cameraUVWObject));
+        memcpy(cameraUniformBuffer.mapped, &renderResource->rtData, sizeof(renderResource->rtData));
     }
 }

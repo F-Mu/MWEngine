@@ -6,6 +6,7 @@ struct RayPayload {
 	float distance;
 	vec3 normal;
 	float reflector;
+	bool shadowd;
 };
 
 layout(location = 0) rayPayloadInEXT RayPayload rayPayload;

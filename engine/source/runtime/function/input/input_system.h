@@ -22,7 +22,8 @@ namespace MW {
 
         void tick();
 
-        void processKeyCommand();
+        uint32_t getKeyCommand() { return keyCommand; }
+//        void processKeyCommand();
 
         void clear();
 
@@ -33,7 +34,6 @@ namespace MW {
 
         int cursorDeltaX{0};
         int cursorDeltaY{0};
-        float cameraSpeed{0.05f};
 
         Radian yaw{0};
         Radian pitch{0};

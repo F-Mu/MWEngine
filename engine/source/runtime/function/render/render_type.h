@@ -1,6 +1,7 @@
 #pragma once
 #include "core/math/math_headers.h"
 #include "core/base/hash.h"
+#include <glm/glm.hpp>
 #include <string>
 namespace MW{
 
@@ -9,19 +10,24 @@ namespace MW{
         Matrix4x4 viewMatrix;
         Matrix4x4 projMatrix;
     };
-
-    struct CameraUVWObject {
-        Vector3 camera_position;
-        float _padding_camera_pos;
-        Vector3 camera_U;
-        float _padding_camera_U;
-        Vector3 camera_V;
-        float _padding_camera_V;
-        Vector3 camera_W;
-        float _padding_camera_W;
-        Vector4 lightPos;
+    struct CameraRTData {
+        glm::mat4 viewInverse;
+        glm::mat4 projInverse;
+        glm::vec4 lightPos;
         int32_t vertexSize;
     };
+//    struct CameraUVWObject {
+//        Vector3 camera_position;
+//        float _padding_camera_pos;
+//        Vector3 camera_U;
+//        float _padding_camera_U;
+//        Vector3 camera_V;
+//        float _padding_camera_V;
+//        Vector3 camera_W;
+//        float _padding_camera_W;
+//        Vector4 lightPos;
+//        int32_t vertexSize;
+//    };
 
     struct MaterialSource {
         std::string baseColorFile;

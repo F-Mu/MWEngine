@@ -16,7 +16,8 @@ namespace MW {
     class RenderResource {
     public:
         CameraObject cameraObject;
-        CameraUVWObject cameraUVWObject;
+        CameraRTData rtData;
+//        CameraUVWObject cameraUVWObject;
 
         GuidAllocator<MaterialSource> materialResources;
         GuidAllocator<TextureSource> textureResources;

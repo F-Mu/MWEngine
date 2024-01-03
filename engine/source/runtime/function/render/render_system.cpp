@@ -30,8 +30,13 @@ namespace MW {
         mainCameraPass = std::make_shared<RayTracingCameraPass>();
         mainCameraPass->initialize(passInfo);
         renderCamera = std::make_shared<RenderCamera>();
+        renderCamera->initialize();
         auto windowSize = info.window->getWindowSize();
-        renderCamera->setAspect(windowSize[0] * 1.0 / windowSize[1]);
+
+        renderCamera->rotationSpeed *= 0.25f;
+        renderCamera->setPerspective(45.0f, windowSize[0] * 1.0 / windowSize[1], 0.1f, 512.0f);
+        renderCamera->setRotation(glm::vec3(0.0f, 0.0f, 0.0f));
+        renderCamera->setTranslation(glm::vec3(0.0f, 0.5f, -2.0f));
     }
 
     void RenderSystem::clean() {
@@ -42,11 +47,21 @@ namespace MW {
     }
 
     void RenderSystem::tick(float delta_time) {
-        renderResource->cameraUVWObject.camera_position = renderCamera->getPosition();
-        renderResource->cameraUVWObject.lightPos = Vector4(40.0f, -20.0f , 25.0f ,0.0f); //TODO:修改
-        // Pass the vertex size to the shader for unpacking vertices
-        renderResource->cameraUVWObject.vertexSize = sizeof(gltfVertex);
-        renderCamera->UVWFrame(renderResource->cameraUVWObject.camera_U,renderResource->cameraUVWObject.camera_V,renderResource->cameraUVWObject.camera_W);
+        renderCamera->update(delta_time);
+        renderResource->rtData.projInverse = glm::inverse(renderCamera->matrices.perspective);
+        renderResource->rtData.viewInverse = glm::inverse(renderCamera->matrices.view);
+        static float timer = 0;
+        float frameTime = 1;
+        float timeSpeed = 0.01;
+        timer += frameTime * timeSpeed * delta_time * 10;
+        if (timer > 1)timer -= 1;
+//        renderResource->cameraUVWObject.camera_position = renderCamera->getPosition();
+        renderResource->rtData.lightPos = glm::vec4(cos(glm::radians(timer * 360.0f)) * 40.0f,
+                                                    -20.0f + sin(glm::radians(timer * 360.0f)) * 20.0f,
+                                                    25.0f + sin(glm::radians(timer * 360.0f)) * 5.0f, 0.0f);
+//         Pass the vertex size to the shader for unpacking vertices
+        renderResource->rtData.vertexSize = sizeof(gltfVertex);
+//        renderCamera->UVWFrame(renderResource->cameraUVWObject.camera_U,renderResource->cameraUVWObject.camera_V,renderResource->cameraUVWObject.camera_W);
 //        renderResource->cameraObject.projMatrix = renderCamera->getPersProjMatrix().inverse();
 //        renderResource->cameraObject.viewMatrix = renderCamera->getViewMatrix().inverse();
 //        {

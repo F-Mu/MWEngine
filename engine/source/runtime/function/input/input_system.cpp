@@ -67,7 +67,7 @@ namespace MW {
                 180.0f / Math::max(windowSize[0], windowSize[1]); // 180 degrees while moving full screen
         if (engineGlobalContext.windowSystem->isMouseButtonDown(GLFW_MOUSE_BUTTON_RIGHT)) {
             engineGlobalContext.renderSystem->getRenderCamera()->rotate(
-                    Vector2(currentCursorX - lastCursorX, currentCursorY - lastCursorY) * angularVelocity);
+                    glm::vec3(cursorDeltaY, -cursorDeltaX, 0.0f));
         }
         lastCursorX = currentCursorX;
         lastCursorY = currentCursorY;
@@ -88,9 +88,8 @@ namespace MW {
     }
 
     void InputSystem::tick() {
-        calculateCursorDeltaAngles();
-        clear();
-        processKeyCommand();
+//        calculateCursorDeltaAngles();
+//        clear();
     }
 
     void InputSystem::clear() {
@@ -99,46 +98,22 @@ namespace MW {
     }
 
     void InputSystem::calculateCursorDeltaAngles() {
-        std::array<int, 2> windowSize = engineGlobalContext.windowSystem->getWindowSize();
-
-        if (windowSize[0] < 1 || windowSize[1] < 1) {
-            return;
-        }
-
-        std::shared_ptr<RenderCamera> renderCamera = engineGlobalContext.renderSystem->getRenderCamera();
-        const Vector2 &fov = renderCamera->getFOV();
-
-        Radian deltaX(Math::degreesToRadians(cursorDeltaX));
-        Radian deltaY(Math::degreesToRadians(cursorDeltaY));
-
-        yaw = (deltaX / (float) windowSize[0]) * fov.x;
-        pitch = -(deltaY / (float) windowSize[1]) * fov.y;
+//        std::array<int, 2> windowSize = engineGlobalContext.windowSystem->getWindowSize();
+//
+//        if (windowSize[0] < 1 || windowSize[1] < 1) {
+//            return;
+//        }
+//
+//        std::shared_ptr<RenderCamera> renderCamera = engineGlobalContext.renderSystem->getRenderCamera();
+//        const Vector2 &fov = renderCamera->getFOV();
+//
+//        Radian deltaX(Math::degreesToRadians(cursorDeltaX));
+//        Radian deltaY(Math::degreesToRadians(cursorDeltaY));
+//
+//        yaw = (deltaX / (float) windowSize[0]) * fov.x;
+//        pitch = -(deltaY / (float) windowSize[1]) * fov.y;
     }
 
-    void InputSystem::processKeyCommand() {
-        std::shared_ptr camera = engineGlobalContext.renderSystem->getRenderCamera();
-//        Quaternion rotate = camera->getRotation().inverse();
-        Vector3 deltaPos(0, 0, 0);
-
-        if ((unsigned int) KeyCommand::up & keyCommand) {
-            deltaPos += Vector3{0, cameraSpeed, 0};
-        }
-        if ((unsigned int) KeyCommand::down & keyCommand) {
-            deltaPos += Vector3{0, -cameraSpeed, 0};
-        }
-        if ((unsigned int) KeyCommand::left & keyCommand) {
-            deltaPos += Vector3{-cameraSpeed, 0, 0};
-        }
-        if ((unsigned int) KeyCommand::right & keyCommand) {
-            deltaPos += Vector3{cameraSpeed, 0, 0};
-        }
-        if ((unsigned int) KeyCommand::forward & keyCommand) {
-            deltaPos += Vector3{0, 0, cameraSpeed};
-        }
-        if ((unsigned int) KeyCommand::backward & keyCommand) {
-            deltaPos += Vector3{0, 0, -cameraSpeed};
-        }
-
-        camera->move(deltaPos);
-    }
+//    void InputSystem::processKeyCommand() {
+//    }
 }
