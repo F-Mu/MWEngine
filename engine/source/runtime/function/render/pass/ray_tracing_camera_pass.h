@@ -29,6 +29,8 @@ namespace MW {
 
         void updateCamera() override;
 
+        void denoise();
+
     private:
         AccelerationStructure bottomLevelAS{};
         AccelerationStructure topLevelAS{};

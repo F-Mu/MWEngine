@@ -267,6 +267,8 @@ namespace MW {
 
         void MapMemory(VulkanBuffer &vulkanBuffer, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
+        void MapMemory(VkDeviceMemory memory,void* mapped, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+
         void flushBuffer(VulkanBuffer &buffer, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
         void unMapMemory(VulkanBuffer &buffer);
@@ -398,7 +400,7 @@ namespace MW {
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
 
-    private:
+//    private:
         void CreateInstance();
 
         void setupDebugMessenger();

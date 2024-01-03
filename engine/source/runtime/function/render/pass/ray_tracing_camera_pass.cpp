@@ -26,7 +26,7 @@ namespace MW {
         const uint32_t glTFLoadingFlags =
                 FileLoadingFlags::PreTransformVertices | FileLoadingFlags::PreMultiplyVertexColors |
                 FileLoadingFlags::FlipY;
-        scene.loadFromFile(getAssetPath() + "models/reflection_scene.gltf", device.get(), glTFLoadingFlags);
+        scene.loadFromFile(getAssetPath() + "models/oaktree.gltf", device.get(), glTFLoadingFlags);
 
         VkDeviceOrHostAddressConstKHR vertexBufferDeviceAddress{};
         VkDeviceOrHostAddressConstKHR indexBufferDeviceAddress{};
@@ -566,6 +566,9 @@ namespace MW {
                 VK_IMAGE_LAYOUT_GENERAL,
                 VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, true, subresourceRange);
 
+        //DENOISE
+        denoise();
+
         VkImageCopy copyRegion{};
         copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
         copyRegion.srcOffset = {0, 0, 0};
@@ -619,5 +622,9 @@ namespace MW {
 
     void RayTracingCameraPass::updateCamera() {
         memcpy(cameraUniformBuffer.mapped, &renderResource->rtData, sizeof(renderResource->rtData));
+    }
+
+    void RayTracingCameraPass::denoise() {
+
     }
 }

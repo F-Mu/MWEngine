@@ -1627,4 +1627,8 @@ namespace MW {
     void VulkanDevice::MapMemory(VulkanBuffer &vulkanBuffer, VkDeviceSize size, VkDeviceSize offset) {
         VK_CHECK_RESULT(vkMapMemory(device, vulkanBuffer.memory, offset, size, 0, &vulkanBuffer.mapped));
     }
+
+    void VulkanDevice::MapMemory(VkDeviceMemory memory, void *mapped, VkDeviceSize size, VkDeviceSize offset) {
+        VK_CHECK_RESULT(vkMapMemory(device, memory, offset, size, 0, &mapped));
+    }
 }
