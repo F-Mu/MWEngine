@@ -13,7 +13,7 @@ namespace MW {
 
         void createStorageImage();
 
-        void createUniformBuffer();
+        void createUniformBuffer() override;
 
         void createShaderBindingTable();
 
@@ -43,7 +43,6 @@ namespace MW {
         VulkanBuffer hitShaderBindingTable;
         StorageImage storageImage;
         uint32_t indexCount;
-        Model scene;
         std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups{};
     };
 }

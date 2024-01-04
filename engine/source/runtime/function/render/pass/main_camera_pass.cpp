@@ -4,17 +4,18 @@
 #include <iostream>
 #include "main_camera_pass.h"
 #include "function/render/render_resource.h"
-#include "HelloTriangle_frag.h"
-#include "HelloTriangle_vert.h"
+#include "scene_frag.h"
+#include "scene_vert.h"
 
 namespace MW {
     void MainCameraPass::initialize(const RenderPassInitInfo &init_info) {
         PassBase::initialize(init_info);
 
         createRenderPass();
-        createPipelines();
+        createUniformBuffer();
         createDescriptorSets();
-        //createFramebufferDescriptorSet();
+        createPipelines();
+        loadModel();
         createSwapchainFramebuffers();
     }
 
@@ -77,11 +78,22 @@ namespace MW {
         device->CreateRenderPass(&renderPassInfo, &framebuffer.renderPass);
     }
 
+    void MainCameraPass::createUniformBuffer() {
+        device->CreateBuffer(
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                cameraUniformBuffer,
+                sizeof(renderResource->cameraObject),
+                &renderResource->cameraObject);
+        device->MapMemory(cameraUniformBuffer);
+
+        updateCamera();
+    }
 
     void MainCameraPass::createPipelines() {
         pipelines.resize(1);
-        auto vertShaderModule = device->CreateShaderModule(HELLOTRIANGLE_VERT);
-        auto fragShaderModule = device->CreateShaderModule(HELLOTRIANGLE_FRAG);
+        auto vertShaderModule = device->CreateShaderModule(SCENE_VERT);
+        auto fragShaderModule = device->CreateShaderModule(SCENE_FRAG);
 
         VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -97,10 +109,12 @@ namespace MW {
 
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInputInfo.vertexBindingDescriptionCount = 0;
-        vertexInputInfo.vertexAttributeDescriptionCount = 0;
+        std::vector<VertexComponent> components{VertexComponent::Position, VertexComponent::Normal, VertexComponent::UV,
+                                                VertexComponent::Color, VertexComponent::Tangent};
+
+//        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+//        vertexInputInfo.vertexBindingDescriptionCount = 0;
+//        vertexInputInfo.vertexAttributeDescriptionCount = 0;
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -160,11 +174,16 @@ namespace MW {
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicState.pDynamicStates = dynamicStates.data();
+        VkPushConstantRange pushConstantRange = CreatePushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4),
+                                                                        0);
 
+        std::vector<VkDescriptorSetLayout> layouts{descriptors[0].layout, descriptors[1].layout};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 0;
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
+        pipelineLayoutInfo.setLayoutCount = layouts.size();
+        pipelineLayoutInfo.pSetLayouts = layouts.data();
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
         device->CreatePipelineLayout(&pipelineLayoutInfo, &pipelines[0].layout);
 
@@ -172,7 +191,7 @@ namespace MW {
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
         pipelineInfo.stageCount = 2;
         pipelineInfo.pStages = shaderStages;
-        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pVertexInputState = gltfVertex::getPipelineVertexInputState(components);
         pipelineInfo.pInputAssemblyState = &inputAssembly;
         pipelineInfo.pViewportState = &viewportState;
         pipelineInfo.pRasterizationState = &rasterizer;
@@ -192,21 +211,40 @@ namespace MW {
     }
 
     void MainCameraPass::createDescriptorSets() {
-        /*{
-            descriptors.resize(1);
-            VkDescriptorSetLayoutBinding layoutBinding{};
-            layoutBinding.binding = 0;
-            layoutBinding.descriptorCount = 1;
-            layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            layoutBinding.pImmutableSamplers = nullptr;
-            layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        {
+            descriptors.resize(2);
+            {
+                VkDescriptorSetLayoutBinding layoutBinding{};
+                layoutBinding.binding = 0;
+                layoutBinding.descriptorCount = 1;
+                layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                layoutBinding.pImmutableSamplers = nullptr;
+                layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-            VkDescriptorSetLayoutCreateInfo layoutInfo{};
-            layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            layoutInfo.bindingCount = 1;
-            layoutInfo.pBindings = &layoutBinding;
+                VkDescriptorSetLayoutCreateInfo layoutInfo{};
+                layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+                layoutInfo.bindingCount = 1;
+                layoutInfo.pBindings = &layoutBinding;
+                device->CreateDescriptorSetLayout(&layoutInfo, &descriptors[0].layout);
+            }
+            {
+                std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
 
-            device->CreateDescriptorSetLayout(&layoutInfo, &descriptors[0].layout);
+                setLayoutBindings.push_back(
+                        CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                         static_cast<uint32_t>(setLayoutBindings.size())));
+                setLayoutBindings.push_back(
+                        CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                         static_cast<uint32_t>(setLayoutBindings.size())));
+
+                VkDescriptorSetLayoutCreateInfo layoutInfo{};
+                layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+                layoutInfo.bindingCount = setLayoutBindings.size();
+                layoutInfo.pBindings = setLayoutBindings.data();
+                device->CreateDescriptorSetLayout(&layoutInfo, &descriptors[1].layout);
+            }
         }
 
         {
@@ -219,21 +257,21 @@ namespace MW {
             device->AllocateDescriptorSets(&allocInfo, &descriptors[0].descriptorSet);
 
             VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = uniformBuffers[i];
+            bufferInfo.buffer = cameraUniformBuffer.buffer;
             bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject);
+            bufferInfo.range = sizeof(CameraObject);
 
             VkWriteDescriptorSet descriptorWrite{};
             descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrite.dstSet = descriptorSets[i];
+            descriptorWrite.dstSet = descriptors[0].descriptorSet;
             descriptorWrite.dstBinding = 0;
             descriptorWrite.dstArrayElement = 0;
             descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             descriptorWrite.descriptorCount = 1;
             descriptorWrite.pBufferInfo = &bufferInfo;
 
-            vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
-        }*/
+            device->UpdateDescriptorSets(1, &descriptorWrite);
+        }
 
     }
 
@@ -289,7 +327,12 @@ namespace MW {
 
         vkCmdSetScissor(device->getCurrentCommandBuffer(), 0, 1, device->getSwapchainInfo().scissor);
 
-        vkCmdDraw(device->getCurrentCommandBuffer(), 3, 1, 0, 0);
+        // Bind scene matrices descriptor to set 0
+        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
+                                0, 1, &descriptors[0].descriptorSet, 0, nullptr);
+
+        scene.draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages, pipelines[0].layout, 1);
+//        vkCmdDraw(device->getCurrentCommandBuffer(), 3, 1, 0, 0);
 
         vkCmdEndRenderPass(device->getCurrentCommandBuffer());
     }
@@ -315,5 +358,13 @@ namespace MW {
 
     void MainCameraPass::preparePassData() {
         updateCamera();
+    }
+
+    void MainCameraPass::loadModel() {
+        const uint32_t glTFLoadingFlags =
+//                FileLoadingFlags::PreTransformVertices | FileLoadingFlags::PreMultiplyVertexColors |
+                FileLoadingFlags::PreTransformVertices |
+                FileLoadingFlags::FlipY;
+        scene.loadFromFile(getAssetPath() + "models/sponza/sponza.gltf", device.get(), glTFLoadingFlags);
     }
 }
