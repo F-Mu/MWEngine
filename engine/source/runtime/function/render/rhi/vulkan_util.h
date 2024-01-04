@@ -5,6 +5,17 @@
 #include <vulkan/vulkan.h>
 
 namespace MW {
+    inline VkPushConstantRange CreatePushConstantRange(
+            VkShaderStageFlags stageFlags,
+            uint32_t size,
+            uint32_t offset)
+    {
+        VkPushConstantRange pushConstantRange {};
+        pushConstantRange.stageFlags = stageFlags;
+        pushConstantRange.offset = offset;
+        pushConstantRange.size = size;
+        return pushConstantRange;
+    }
     inline VkDescriptorSetLayoutBinding CreateDescriptorSetLayoutBinding(
             VkDescriptorType type,
             VkShaderStageFlags stageFlags,

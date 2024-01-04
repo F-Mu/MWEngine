@@ -10,7 +10,7 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + Simple triangle drawing based-on rasterization
 
-+ Simple ray-tracing like Optix Sample
++ Simple ray-tracing
 
 + gltf model loading
 

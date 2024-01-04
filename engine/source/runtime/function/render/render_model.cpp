@@ -16,7 +16,7 @@ namespace MW {
     VkDescriptorSetLayout descriptorSetLayoutImage = VK_NULL_HANDLE;
     VkDescriptorSetLayout descriptorSetLayoutUbo = VK_NULL_HANDLE;
     VkMemoryPropertyFlags memoryPropertyFlags = 0;
-    uint32_t descriptorBindingFlags = DescriptorBindingFlags::ImageBaseColor;
+    uint32_t descriptorBindingFlags = DescriptorBindingFlags::ImageBaseColor | DescriptorBindingFlags::ImageNormalMap;
 
 /*
 	We use a custom image loading function with tinyglTF, so we can do custom stuff loading ktx textures
@@ -358,11 +358,10 @@ namespace MW {
         samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
         samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
         samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-        samplerInfo.maxAnisotropy = 1.0;
-        samplerInfo.anisotropyEnable = VK_FALSE;
+        samplerInfo.maxAnisotropy = device->enabledFeatures.samplerAnisotropy ? device->properties.limits.maxSamplerAnisotropy : 1.0f;
+        samplerInfo.anisotropyEnable = device->enabledFeatures.samplerAnisotropy;
         samplerInfo.maxLod = (float) mipLevels;
         samplerInfo.maxAnisotropy = 8.0f;
-        samplerInfo.anisotropyEnable = VK_TRUE;
         device->CreateSampler(&samplerInfo, &sampler);
 
         VkImageViewCreateInfo viewInfo{};
@@ -517,10 +516,12 @@ namespace MW {
         switch (component) {
             case VertexComponent::Position:
                 return VkVertexInputAttributeDescription(
-                        {location, binding, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(gltfVertex, pos))});
+                        {location, binding, VK_FORMAT_R32G32B32_SFLOAT,
+                         static_cast<uint32_t>(offsetof(gltfVertex, pos))});
             case VertexComponent::Normal:
                 return VkVertexInputAttributeDescription(
-                        {location, binding, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(gltfVertex, normal))});
+                        {location, binding, VK_FORMAT_R32G32B32_SFLOAT,
+                         static_cast<uint32_t>(offsetof(gltfVertex, normal))});
             case VertexComponent::UV:
                 return VkVertexInputAttributeDescription(
                         {location, binding, VK_FORMAT_R32G32_SFLOAT, static_cast<uint32_t>(offsetof(gltfVertex, uv))});
@@ -1126,7 +1127,7 @@ namespace MW {
         }
     }
 
-    void Model::loadFromFile(std::string filename, VulkanDevice *device,uint32_t fileLoadingFlags, float scale) {
+    void Model::loadFromFile(std::string filename, VulkanDevice *device, uint32_t fileLoadingFlags, float scale) {
         tinygltf::Model gltfModel;
         tinygltf::TinyGLTF gltfContext;
         if (fileLoadingFlags & FileLoadingFlags::DontLoadImages) {

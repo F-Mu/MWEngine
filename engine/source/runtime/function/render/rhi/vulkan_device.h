@@ -398,7 +398,7 @@ namespace MW {
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
 
-    private:
+//    private:
         void CreateInstance();
 
         void setupDebugMessenger();
