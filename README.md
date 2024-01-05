@@ -8,7 +8,7 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 **NOW:**
 
-+ Simple triangle drawing based-on rasterization
++ Simple rasterization
 
 + Simple ray-tracing
 
@@ -18,7 +18,7 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + Provide scene and object loading
 
-+ Provide UI and camera
++ Provide UI
 
 + Separate normal Vulkan device and ray-tracing Vulkan device
 
@@ -26,10 +26,8 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + More render passes after learning more graphics knowledge
 
-+ Become a game engine,having editor mode and game mode
++ ~~Become a game engine,having editor mode and game mode~~
 
-+ Fix rasterization MVP
++ Cascade shadow map
 
-+ Fix camera rotation
-
-+ Fix Orthogonal Projection
++ AO

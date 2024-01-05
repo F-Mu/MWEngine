@@ -72,7 +72,7 @@ namespace MW {
         QueueFamilyIndices findPhysicalQueueFamilies() { return findQueueFamilies(physicalDevice); }
 
         VkFormat findSupportedFormat(
-                const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+                const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features,bool checkSamplingSupport=false);
 
         void findFunctionRequired();
 
@@ -320,7 +320,7 @@ namespace MW {
 
         void resetCommandPool();
 
-        VkFormat findDepthFormat();
+        VkFormat findDepthFormat(bool checkSamplingSupport=false);
 
         VkResult acquireNextImage(uint32_t *imageIndex);
 

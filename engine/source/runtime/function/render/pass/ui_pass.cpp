@@ -5,7 +5,7 @@
 #include <array>
 
 namespace MW {
-    void UIPass::initialize(const RenderPassInitInfo &info) {
+    void UIPass::initialize(const RenderPassInitInfo *info) {
         PassBase::initialize(info);
         createRenderPass();
 

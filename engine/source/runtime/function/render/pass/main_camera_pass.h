@@ -8,7 +8,7 @@ namespace MW {
 
     class MainCameraPass : public PassBase {
     public:
-        void initialize(const RenderPassInitInfo &init_info) override;
+        void initialize(const RenderPassInitInfo *init_info) override;
 
         void preparePassData() override;
 

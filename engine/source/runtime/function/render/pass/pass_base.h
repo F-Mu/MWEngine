@@ -13,6 +13,8 @@ namespace MW {
         std::shared_ptr<RenderResource> renderResource;
     };
 
+    constexpr uint32_t DEFAULT_IMAGE_WIDTH = 4096;
+    constexpr uint32_t DEFAULT_IMAGE_HEIGHT = 4096;
 
     class PassBase {
     public:
@@ -54,12 +56,12 @@ namespace MW {
 
         virtual std::vector<VkDescriptorSetLayout> getDescriptorSetLayouts() const;
 
-        virtual void initialize(const RenderPassInitInfo &info);
+        virtual void initialize(const RenderPassInitInfo *info);
 
         virtual void preparePassData();
 
     protected:
-        std::shared_ptr<VulkanDevice>device;
+        std::shared_ptr<VulkanDevice> device;
         std::shared_ptr<RenderResource> renderResource;
     };
 } // namespace MW

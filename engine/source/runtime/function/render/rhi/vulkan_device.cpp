@@ -519,11 +519,17 @@ namespace MW {
     }
 
     VkFormat VulkanDevice::findSupportedFormat(
-            const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+            const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features,
+            bool checkSamplingSupport) {
         for (VkFormat format: candidates) {
             VkFormatProperties props;
             vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
 
+            if (checkSamplingSupport) {
+                if (!(props.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) {
+                    continue;
+                }
+            }
             if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
                 return format;
             } else if (
@@ -1336,11 +1342,11 @@ namespace MW {
         }
     }
 
-    VkFormat VulkanDevice::findDepthFormat() {
+    VkFormat VulkanDevice::findDepthFormat(bool checkSamplingSupport) {
         return findSupportedFormat(
                 {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
                 VK_IMAGE_TILING_OPTIMAL,
-                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, checkSamplingSupport);
     }
 
     void VulkanDevice::updateDescriptorSets(const VkWriteDescriptorSet *pDescriptorWrites,

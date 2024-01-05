@@ -7,7 +7,7 @@ namespace MW {
 
     class UIPass : public PassBase {
     public:
-        void initialize(const RenderPassInitInfo &info) override;
+        void initialize(const RenderPassInitInfo *info) override;
 
     private:
         void uploadFonts();

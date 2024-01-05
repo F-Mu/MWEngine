@@ -5,7 +5,7 @@
 namespace MW {
     class RayTracingCameraPass : public MainCameraPass {
     public:
-        void initialize(const RenderPassInitInfo &init_info) override;
+        void initialize(const RenderPassInitInfo *init_info) override;
 
         void createBottomLevelAccelerationStructure();
 

@@ -28,7 +28,7 @@ namespace MW {
         passInfo.device = device;
         passInfo.renderResource = renderResource;
         mainCameraPass = std::make_shared<MainCameraPass>();
-        mainCameraPass->initialize(passInfo);
+        mainCameraPass->initialize(&passInfo);
         renderCamera = std::make_shared<RenderCamera>();
         renderCamera->initialize();
         auto windowSize = info.window->getWindowSize();

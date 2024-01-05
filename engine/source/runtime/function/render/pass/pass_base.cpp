@@ -1,9 +1,9 @@
 #include "pass_base.h"
 
 namespace MW {
-    void PassBase::initialize(const RenderPassInitInfo &init_info) {
-        device = init_info.device;
-        renderResource = init_info.renderResource;
+    void PassBase::initialize(const RenderPassInitInfo *init_info) {
+        device = init_info->device;
+        renderResource = init_info->renderResource;
     }
 
     void PassBase::preparePassData() {}

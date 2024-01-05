@@ -8,7 +8,7 @@
 #include "scene_vert.h"
 
 namespace MW {
-    void MainCameraPass::initialize(const RenderPassInitInfo &init_info) {
+    void MainCameraPass::initialize(const RenderPassInitInfo *init_info) {
         PassBase::initialize(init_info);
 
         createRenderPass();

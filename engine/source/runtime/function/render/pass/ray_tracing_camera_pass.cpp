@@ -6,7 +6,7 @@
 #include "closesthit_rchit.h"
 
 namespace MW {
-    void RayTracingCameraPass::initialize(const RenderPassInitInfo &init_info) {
+    void RayTracingCameraPass::initialize(const RenderPassInitInfo *init_info) {
         PassBase::initialize(init_info);
         createBottomLevelAccelerationStructure();
         createTopLevelAccelerationStructure();
