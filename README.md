@@ -14,6 +14,8 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + gltf model loading
 
++ CSM+PCF
+
 **TODO:**
 
 + Provide scene and object loading
@@ -27,7 +29,5 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 + More render passes after learning more graphics knowledge
 
 + ~~Become a game engine,having editor mode and game mode~~
-
-+ Cascade shadow map
 
 + AO
