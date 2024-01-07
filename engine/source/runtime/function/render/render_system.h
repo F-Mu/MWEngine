@@ -15,6 +15,8 @@ namespace MW {
 
     class RenderCamera;
 
+    class SceneManager;
+
     struct RenderSystemInitInfo {
         std::shared_ptr<WindowSystem> window;
     };
@@ -38,12 +40,14 @@ namespace MW {
         void passUpdateAfterRecreateSwapchain();
 
         std::shared_ptr<RenderCamera> getRenderCamera() { return renderCamera; }
+        std::shared_ptr<SceneManager> getScene() { return sceneManager; }
 
+        std::shared_ptr<VulkanDevice> device;
     private:
         std::shared_ptr<RenderResource> renderResource;
-        std::shared_ptr<VulkanDevice> device;
         std::shared_ptr<MainCameraPass> mainCameraPass;
         std::shared_ptr<WindowSystem> windowSystem;
+        std::shared_ptr<SceneManager> sceneManager;
         std::shared_ptr<RenderCamera> renderCamera;
     };
 }

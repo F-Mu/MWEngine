@@ -253,11 +253,11 @@ namespace MW
 
         struct Vertices {
             int count;
-            VulkanBuffer buffer;
+            VulkanBuffer buffer{};
         } vertices;
         struct Indices {
             int count;
-            VulkanBuffer buffer;
+            VulkanBuffer buffer{};
         } indices;
 
         std::vector<Node*> nodes;

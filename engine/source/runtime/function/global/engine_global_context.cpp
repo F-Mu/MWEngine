@@ -2,6 +2,7 @@
 
 #include "function/render/window_system.h"
 #include "function/render/render_system.h"
+#include "function/render/scene_manager.h"
 #include "function/input/input_system.h"
 
 namespace MW {
@@ -23,5 +24,9 @@ namespace MW {
         inputSystem.reset();
         renderSystem.reset();
         windowSystem.reset();
+    }
+
+    std::shared_ptr<SceneManager> EngineGlobalContext::getScene() {
+        return renderSystem->getScene();
     }
 }

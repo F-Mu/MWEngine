@@ -153,8 +153,6 @@ namespace MW {
         } matrices;
 //        float fovX{45.f};
 //        float fovY{0.f};
-        float near{0.1f};
-        float far{1000.0f};
         float aspect{0.f};
     private:
         float fov;

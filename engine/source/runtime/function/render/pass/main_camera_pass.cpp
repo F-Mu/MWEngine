@@ -4,18 +4,25 @@
 #include <iostream>
 #include "main_camera_pass.h"
 #include "function/render/render_resource.h"
+#include "cascade_shadow_map_pass.h"
+#include "function/global/engine_global_context.h"
+#include "function/render/scene_manager.h"
 #include "scene_frag.h"
 #include "scene_vert.h"
 
 namespace MW {
+    extern VkDescriptorSetLayout descriptorSetLayoutImage;
+
     void MainCameraPass::initialize(const RenderPassInitInfo *init_info) {
         PassBase::initialize(init_info);
+        shadowMapPass = std::make_shared<CascadeShadowMapPass>();
+        shadowMapPass->initialize(init_info);
 
+        loadModel();
         createRenderPass();
         createUniformBuffer();
         createDescriptorSets();
         createPipelines();
-        loadModel();
         createSwapchainFramebuffers();
     }
 
@@ -162,9 +169,10 @@ namespace MW {
         depthStencilCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         depthStencilCreateInfo.depthTestEnable = VK_TRUE;
         depthStencilCreateInfo.depthWriteEnable = VK_TRUE;
-        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
         depthStencilCreateInfo.depthBoundsTestEnable = VK_FALSE;
         depthStencilCreateInfo.stencilTestEnable = VK_FALSE;
+        depthStencilCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
 
         std::vector<VkDynamicState> dynamicStates = {
                 VK_DYNAMIC_STATE_VIEWPORT,
@@ -177,7 +185,7 @@ namespace MW {
         VkPushConstantRange pushConstantRange = CreatePushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4),
                                                                         0);
 
-        std::vector<VkDescriptorSetLayout> layouts{descriptors[0].layout, descriptors[1].layout};
+        std::vector<VkDescriptorSetLayout> layouts{descriptors[0].layout, descriptorSetLayoutImage};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = layouts.size();
@@ -211,50 +219,24 @@ namespace MW {
     }
 
     void MainCameraPass::createDescriptorSets() {
+        descriptors.resize(1);
         {
-            descriptors.resize(2);
-            {
-                VkDescriptorSetLayoutBinding layoutBinding{};
-                layoutBinding.binding = 0;
-                layoutBinding.descriptorCount = 1;
-                layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-                layoutBinding.pImmutableSamplers = nullptr;
-                layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+            VkDescriptorSetLayoutBinding layoutBinding{};
+            layoutBinding.binding = 0;
+            layoutBinding.descriptorCount = 1;
+            layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            layoutBinding.pImmutableSamplers = nullptr;
+            layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-                VkDescriptorSetLayoutCreateInfo layoutInfo{};
-                layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-                layoutInfo.bindingCount = 1;
-                layoutInfo.pBindings = &layoutBinding;
-                device->CreateDescriptorSetLayout(&layoutInfo, &descriptors[0].layout);
-            }
-            {
-                std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
-
-                setLayoutBindings.push_back(
-                        CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                         static_cast<uint32_t>(setLayoutBindings.size())));
-                setLayoutBindings.push_back(
-                        CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                         VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                         static_cast<uint32_t>(setLayoutBindings.size())));
-
-                VkDescriptorSetLayoutCreateInfo layoutInfo{};
-                layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-                layoutInfo.bindingCount = setLayoutBindings.size();
-                layoutInfo.pBindings = setLayoutBindings.data();
-                device->CreateDescriptorSetLayout(&layoutInfo, &descriptors[1].layout);
-            }
+            VkDescriptorSetLayoutCreateInfo layoutInfo{};
+            layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            layoutInfo.bindingCount = 1;
+            layoutInfo.pBindings = &layoutBinding;
+            device->CreateDescriptorSetLayout(&layoutInfo, &descriptors[0].layout);
         }
 
         {
-            VkDescriptorSetAllocateInfo allocInfo{};
-            allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-            allocInfo.descriptorPool = device->getDescriptorPool();
-            allocInfo.descriptorSetCount = 1;
-            allocInfo.pSetLayouts = &descriptors[0].layout;
-
-            device->AllocateDescriptorSets(&allocInfo, &descriptors[0].descriptorSet);
+            device->CreateDescriptorSet(1, descriptors[0].layout, descriptors[0].descriptorSet);
 
             VkDescriptorBufferInfo bufferInfo{};
             bufferInfo.buffer = cameraUniformBuffer.buffer;
@@ -299,6 +281,7 @@ namespace MW {
     }
 
     void MainCameraPass::draw() {
+        shadowMapPass->drawDepth();
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         renderPassInfo.renderPass = framebuffer.renderPass;
@@ -308,13 +291,11 @@ namespace MW {
 
         std::array<VkClearValue, 2> clearColors;
         clearColors[0] = {1.0f, 0};
-        clearColors[1] = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        clearColors[1] = {{0.0f, 0.0f, 0.2f, 1.0f}};
         renderPassInfo.clearValueCount = clearColors.size();
         renderPassInfo.pClearValues = clearColors.data();
 
         vkCmdBeginRenderPass(device->getCurrentCommandBuffer(), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-        vkCmdBindPipeline(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
 
         VkViewport viewport{};
         viewport.x = 0.0f;
@@ -327,11 +308,16 @@ namespace MW {
 
         vkCmdSetScissor(device->getCurrentCommandBuffer(), 0, 1, device->getSwapchainInfo().scissor);
 
+        shadowMapPass->draw();
         // Bind scene matrices descriptor to set 0
-        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
-                                0, 1, &descriptors[0].descriptorSet, 0, nullptr);
-
-        scene.draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages, pipelines[0].layout, 1);
+//        vkCmdBindPipeline(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
+//
+//        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
+//                                0, 1, &descriptors[0].descriptorSet, 0, nullptr);
+//
+//        engineGlobalContext.getScene()->draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages,
+//                                               pipelines[0].layout, 1);
+//        scene.draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages, pipelines[0].layout, 1);
 //        vkCmdDraw(device->getCurrentCommandBuffer(), 3, 1, 0, 0);
 
         vkCmdEndRenderPass(device->getCurrentCommandBuffer());
@@ -348,7 +334,6 @@ namespace MW {
             device->DestroyFramebuffer(framebuffer);
         }
 
-        //createFramebufferDescriptorSet();
         createSwapchainFramebuffers();
     }
 
@@ -358,6 +343,7 @@ namespace MW {
 
     void MainCameraPass::preparePassData() {
         updateCamera();
+        shadowMapPass->preparePassData();
     }
 
     void MainCameraPass::loadModel() {

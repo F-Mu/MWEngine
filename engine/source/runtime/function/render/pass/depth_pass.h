@@ -1,7 +1,10 @@
 #pragma once
 
 #include "pass_base.h"
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
+#include <glm/glm.hpp>
 namespace MW {
     struct DepthPassInitInfo : public RenderPassInitInfo {
         // Maybe More
@@ -9,11 +12,9 @@ namespace MW {
         uint32_t depthImageHeight{DEFAULT_IMAGE_HEIGHT};
         uint32_t depthArrayLayers{1};
     };
-    struct PushConstBlock {
-        glm::vec4 position; //深度测试的相机位置，也许是相机，也许是光源
-    };
+
     struct UniformBufferObject {
-        glm::mat4 viewProjMatrix;
+        glm::mat4 projViewMatrix;
     };
 
     struct DepthImage {
@@ -28,18 +29,23 @@ namespace MW {
             vkFreeMemory(device, mem, nullptr);
             vkDestroySampler(device, sampler, nullptr);
         }
-    } depth;
+    };
 
     class DepthPass : public PassBase {
     public:
-        void drawLayer(int nowLayer = 0);
+        void drawLayer();
 
         void initialize(const RenderPassInitInfo *info) override;
 
-        PushConstBlock pushConstant;
-        UniformBufferObject uniformBufferObject;
+        std::vector<UniformBufferObject> uniformBufferObjects;
+
+        void preparePassData() override;
+
+        std::vector<int> needUpdate;
+        DepthImage depth;
     private:
         void draw() override;
+
         void createRenderPass();
 
         void createUniformBuffer();
@@ -54,8 +60,7 @@ namespace MW {
         uint32_t depthImageWidth;
         uint32_t depthImageHeight;
         uint32_t depthArrayLayers;
-        DepthImage depth;
         std::vector<VkFramebuffer> depthFramebuffers;
-        VulkanBuffer uniformBuffer;
+        std::vector<VulkanBuffer> uniformBuffers;
     };
 }

@@ -18,13 +18,11 @@ namespace MW {
         void initialize();
 
         void clear();
-
+        std::shared_ptr<SceneManager>getScene();
     public:
-
         std::shared_ptr<WindowSystem> windowSystem;
         std::shared_ptr<RenderSystem> renderSystem;
         std::shared_ptr<InputSystem> inputSystem;
-        std::shared_ptr<SceneManager> sceneManager;
     };
 
     extern EngineGlobalContext engineGlobalContext;

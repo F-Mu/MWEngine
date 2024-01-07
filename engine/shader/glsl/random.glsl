@@ -27,7 +27,7 @@ uint lcg(inout uint previous)
     const uint multiplier = 1664525u;
     const uint increment = 1013904223u;
     previous   = (multiplier * previous + increment);
-    return previous & 0x00FFFFFF;
+    return previous & 0x00FFFFFFu;
 }
 
 // Generate a random float in [0, 1) given the previous RNG state

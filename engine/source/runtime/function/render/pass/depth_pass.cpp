@@ -11,11 +11,12 @@ namespace MW {
     extern VkDescriptorSetLayout descriptorSetLayoutImage;
 
     void DepthPass::initialize(const RenderPassInitInfo *info) {
+        PassBase::initialize(info);
         const auto *_info = static_cast<const DepthPassInitInfo *>(info);
         depthImageWidth = _info->depthImageWidth;
         depthImageHeight = _info->depthImageHeight;
         depthArrayLayers = _info->depthArrayLayers;
-
+        uniformBufferObjects.resize(depthArrayLayers);
         createRenderPass();
         createUniformBuffer();
         createDescriptorSets();
@@ -23,7 +24,7 @@ namespace MW {
         createFramebuffers();
     }
 
-    void DepthPass::createRenderPass() { //单张depth图，多张imageview
+    void DepthPass::createRenderPass() {
         VkFormat depthFormat = device->findDepthFormat(true);
 
         VkAttachmentDescription attachmentDescription{};
@@ -118,11 +119,15 @@ namespace MW {
     }
 
     void DepthPass::createUniformBuffer() {
-        device->CreateBuffer(
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                uniformBuffer,
-                sizeof(UniformBufferObject));
+        uniformBuffers.resize(depthArrayLayers);
+        for (int i = 0; i < depthArrayLayers; ++i) {
+            device->CreateBuffer(
+                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                    uniformBuffers[i],
+                    sizeof(UniformBufferObject));
+            device->MapMemory(uniformBuffers[i]);
+        }
     }
 
     void DepthPass::createDescriptorSets() {
@@ -136,13 +141,15 @@ namespace MW {
         descriptorSetLayoutCreateInfo.bindingCount = 1;
         for (uint32_t i = 0; i < depthArrayLayers; i++) {
             device->CreateDescriptorSetLayout(&descriptorSetLayoutCreateInfo, &descriptors[i].layout);
+            device->CreateDescriptorSet(1, descriptors[i].layout, descriptors[i].descriptorSet);
+
             VkDescriptorImageInfo cascadeImageInfo{};
             cascadeImageInfo.sampler = depth.sampler;
             cascadeImageInfo.imageView = depth.view;
             cascadeImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
             VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = uniformBuffer.buffer;
+            bufferInfo.buffer = uniformBuffers[i].buffer;
             bufferInfo.offset = 0;
             bufferInfo.range = sizeof(UniformBufferObject);
 
@@ -242,27 +249,19 @@ namespace MW {
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
         rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
+        rasterizer.depthClampEnable = device->enabledFeatures.depthClamp;
 
         VkPipelineMultisampleStateCreateInfo multisampling{};
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         multisampling.sampleShadingEnable = VK_FALSE;
         multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-        VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-        colorBlendAttachment.colorWriteMask =
-                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                VK_COLOR_COMPONENT_A_BIT;
-        colorBlendAttachment.blendEnable = VK_FALSE;
-
         VkPipelineColorBlendStateCreateInfo colorBlending{};
         colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlending.logicOpEnable = VK_FALSE;
-        colorBlending.logicOp = VK_LOGIC_OP_COPY;
-        colorBlending.attachmentCount = 1;
-        colorBlending.pAttachments = &colorBlendAttachment;
+        colorBlending.attachmentCount = 0;
         colorBlending.blendConstants[0] = 0.0f;
         colorBlending.blendConstants[1] = 0.0f;
         colorBlending.blendConstants[2] = 0.0f;
@@ -322,7 +321,21 @@ namespace MW {
         renderPassBeginInfo.renderArea.extent.height = depthImageHeight;
         renderPassBeginInfo.clearValueCount = 1;
         renderPassBeginInfo.pClearValues = clearValues;
+        renderPassBeginInfo.framebuffer = depthFramebuffers[nowArrayLayer];
 
+        vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
+        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
+                                0, 1, &descriptors[nowArrayLayer].descriptorSet, 0, nullptr);
+
+        PushConstBlock pushConstant;
+        engineGlobalContext.getScene()->draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages,
+                                               pipelines[0].layout, 1, &pushConstant, sizeof(pushConstant));
+        vkCmdEndRenderPass(commandBuffer);
+    }
+
+    void DepthPass::drawLayer() {
+        auto commandBuffer = device->getCurrentCommandBuffer();
         VkViewport viewport{};
         viewport.width = depthImageWidth;
         viewport.height = depthImageHeight;
@@ -335,19 +348,14 @@ namespace MW {
         scissor.offset = {0, 0};
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        renderPassBeginInfo.framebuffer = depthFramebuffers[nowArrayLayer];
-        vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
-
-        engineGlobalContext.sceneManager->draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages,
-                                               pipelines[0].layout, 1, &pushConstant, sizeof(pushConstant));
-//        renderScene(commandBuffer, depthPass.pipelineLayout, descriptors[nowArrayLayer].descriptorSet, j);
-        vkCmdEndRenderPass(commandBuffer);
-
+        for (auto&i:needUpdate) {
+            nowArrayLayer = i;
+            draw();
+        }
     }
 
-    void DepthPass::drawLayer(int nowLayer) {
-        nowArrayLayer = nowLayer;
-        draw();
+    void DepthPass::preparePassData() {
+        for (auto&i:needUpdate)
+            memcpy(uniformBuffers[i].mapped, &uniformBufferObjects[i], sizeof(UniformBufferObject));
     }
 }

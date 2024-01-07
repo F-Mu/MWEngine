@@ -1,16 +1,20 @@
 #pragma once
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "core/math/math_headers.h"
 #include "core/base/hash.h"
 #include <glm/glm.hpp>
 #include <string>
-namespace MW{
 
+namespace MW {
     // TODO:给proj_view_matrix
     struct CameraObject {
         glm::mat4 projMatrix;
         glm::mat4 viewMatrix;
         glm::vec4 lightPos = glm::vec4(0.0f, 2.5f, 0.0f, 1.0f);
         glm::vec4 viewPos;
+        glm::mat4 projViewMatrix;
     };
     struct CameraRTData {
         glm::mat4 viewInverse;
@@ -61,18 +65,18 @@ namespace MW{
     struct TextureSource {
         std::string textureFile;
 
-        bool   operator==(const TextureSource& rhs) const { return textureFile == rhs.textureFile; }
-        size_t getHashValue() const { return std::hash<std::string> {}(textureFile); }
+        bool operator==(const TextureSource &rhs) const { return textureFile == rhs.textureFile; }
+
+        size_t getHashValue() const { return std::hash<std::string>{}(textureFile); }
     };
 }
 
 template<>
-struct std::hash<MW::MaterialSource>
-{
-    size_t operator()(const MW::MaterialSource& rhs) const noexcept { return rhs.getHashValue(); }
+struct std::hash<MW::MaterialSource> {
+    size_t operator()(const MW::MaterialSource &rhs) const noexcept { return rhs.getHashValue(); }
 };
+
 template<>
-struct std::hash<MW::TextureSource>
-{
-    size_t operator()(const MW::TextureSource& rhs) const noexcept { return rhs.getHashValue(); }
+struct std::hash<MW::TextureSource> {
+    size_t operator()(const MW::TextureSource &rhs) const noexcept { return rhs.getHashValue(); }
 };

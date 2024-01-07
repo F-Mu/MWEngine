@@ -4,7 +4,7 @@
 #include "function/render/render_model.h"
 
 namespace MW {
-    class RenderResourceBase;
+    class CascadeShadowMapPass;
 
     class MainCameraPass : public PassBase {
     public:
@@ -19,6 +19,7 @@ namespace MW {
     protected:
         VulkanBuffer cameraUniformBuffer;
         std::vector<VkFramebuffer> swapChainFramebuffers;
+        std::shared_ptr<CascadeShadowMapPass> shadowMapPass;
         Model scene;
         void loadModel();
 

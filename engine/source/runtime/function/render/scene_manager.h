@@ -1,21 +1,31 @@
 #pragma once
 
 #include "render_model.h"
-#include <glm/glm.hpp>
 #include <vector>
 
 namespace MW {
+    struct SceneManagerInitInfo {
+        std::shared_ptr<VulkanDevice> device;
+    };
+
+    struct PushConstBlock {
+        glm::vec3 position{0};
+    };
+
     class SceneManager {
     public:
         void
         loadModel(const std::string &filename, VulkanDevice *device, uint32_t fileLoadingFlags = FileLoadingFlags::None,
-                  float scale = 1.0, glm::vec3 modelPos = glm::vec3(0.0f));
+                  glm::vec3 modelPos = glm::vec3(0.0f),float scale = 1.0);
 
         void
         draw(VkCommandBuffer commandBuffer, uint32_t renderFlags = 0, VkPipelineLayout pipelineLayout = VK_NULL_HANDLE,
-             uint32_t bindImageSet = 1, void *pushConstant = nullptr, uint32_t pushSize = 0);
+             uint32_t bindImageSet = 1, PushConstBlock *pushConstant = nullptr, uint32_t pushSize = 0);
 
-        std::vector<Model> models;
+        void initialize(SceneManagerInitInfo *initInfo);
+    private:
+        std::shared_ptr<VulkanDevice> device;
+        std::vector<std::shared_ptr<Model>> models; /* 存指针！！！不然扩容时会全析构 */
         std::vector<glm::vec3> modelPoss;
     };
 }
