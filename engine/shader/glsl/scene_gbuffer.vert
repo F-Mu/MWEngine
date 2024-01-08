@@ -1,5 +1,7 @@
 #version 450
 
+#extension GL_GOOGLE_include_directive : enable
+#include "debug.glsl"
 layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec2 inUV;
 layout (location = 2) in vec3 inColor;
@@ -44,5 +46,4 @@ void main()
     outNormal = inNormal;
     outTangent = inTangent;
     // Currently just vertex color
-    outColor = inColor;
 }

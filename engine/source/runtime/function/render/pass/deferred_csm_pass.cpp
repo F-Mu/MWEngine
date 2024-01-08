@@ -11,7 +11,7 @@ namespace MW {
         pipelines.resize(1);
         VkPushConstantRange pushConstantRange = CreatePushConstantRange(VK_SHADER_STAGE_VERTEX_BIT,
                                                                         sizeof(PushConstBlock), 0);
-        std::vector<VkDescriptorSetLayout> layouts = {descriptors[0].layout, descriptorSetLayoutImage,gBufferGlobalDescriptor.layout};
+        std::vector<VkDescriptorSetLayout> layouts = {descriptors[0].layout, gBufferGlobalDescriptor.layout};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = layouts.size();
@@ -37,8 +37,7 @@ namespace MW {
 
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-        std::vector<VertexComponent> components{VertexComponent::Position, VertexComponent::UV, VertexComponent::Color,
-                                                VertexComponent::Normal};
+        std::vector<VertexComponent> components{};
 
 //        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 //        vertexInputInfo.vertexBindingDescriptionCount = 0;
@@ -117,7 +116,7 @@ namespace MW {
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
         pipelineInfo.renderPass = framebuffer.renderPass;
-        pipelineInfo.subpass = 0;
+        pipelineInfo.subpass = main_camera_subpass_csm_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
         device->CreateGraphicsPipelines(&pipelineInfo, &pipelines[0].pipeline);
@@ -133,12 +132,12 @@ namespace MW {
                                 0, 1, &descriptors[0].descriptorSet, 0, nullptr);
 
         vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
-                                2, 1, &gBufferGlobalDescriptor.descriptorSet, 0, nullptr);
+                                1, 1, &gBufferGlobalDescriptor.descriptorSet, 0, nullptr);
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
 
         PushConstBlock pushConstant;
-        engineGlobalContext.getScene()->draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages,
-                                             pipelines[0].layout, 1, &pushConstant, sizeof(pushConstant));
+        engineGlobalContext.getScene()->draw(device->getCurrentCommandBuffer(), 0,
+                                             pipelines[0].layout, 0, &pushConstant, sizeof(pushConstant));
     }
 }

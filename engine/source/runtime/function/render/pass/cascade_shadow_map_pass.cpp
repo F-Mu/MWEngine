@@ -302,7 +302,7 @@ namespace MW {
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
         pipelineInfo.renderPass = framebuffer.renderPass;
-        pipelineInfo.subpass = 0;
+        pipelineInfo.subpass = main_camera_subpass_csm_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
         device->CreateGraphicsPipelines(&pipelineInfo, &pipelines[0].pipeline);

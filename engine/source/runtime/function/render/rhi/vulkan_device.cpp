@@ -1364,21 +1364,21 @@ namespace MW {
     void VulkanDevice::CreateDescriptorPool() {
         std::array<VkDescriptorPoolSize, 8> pool_sizes{};
         pool_sizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-        pool_sizes[0].descriptorCount = 2 + 2;
+        pool_sizes[0].descriptorCount = 64;
         pool_sizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        pool_sizes[1].descriptorCount = 1;
+        pool_sizes[1].descriptorCount = 64;
         pool_sizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         pool_sizes[2].descriptorCount = 1 * maxMaterialCount;
         pool_sizes[3].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         pool_sizes[3].descriptorCount = 1 * maxMaterialCount;
         pool_sizes[4].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-        pool_sizes[4].descriptorCount = 1;
+        pool_sizes[4].descriptorCount = 64;
         pool_sizes[5].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-        pool_sizes[5].descriptorCount = 1;
+        pool_sizes[5].descriptorCount = 64;
         pool_sizes[6].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        pool_sizes[6].descriptorCount = 1;
+        pool_sizes[6].descriptorCount = 64;
         pool_sizes[7].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-        pool_sizes[7].descriptorCount = 2;
+        pool_sizes[7].descriptorCount = 64;
 
         VkDescriptorPoolCreateInfo pool_info{};
         pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;

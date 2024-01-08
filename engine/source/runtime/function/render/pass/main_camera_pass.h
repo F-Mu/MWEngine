@@ -31,10 +31,6 @@ namespace MW {
 
         void createAttachments();
 
-        void createGBufferSubPass(VkSubpassDescription &subpassDesc);
-
-        void createCSMSubPass(VkSubpassDescription &subpassDesc);
-
         virtual void createRenderPass();
 
         virtual void createPipelines();

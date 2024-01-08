@@ -16,6 +16,15 @@ namespace MW {
         pushConstantRange.size = size;
         return pushConstantRange;
     }
+    inline VkPipelineColorBlendAttachmentState CreatePipelineColorBlendAttachmentState(
+            VkColorComponentFlags colorWriteMask,
+            VkBool32 blendEnable)
+    {
+        VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState {};
+        pipelineColorBlendAttachmentState.colorWriteMask = colorWriteMask;
+        pipelineColorBlendAttachmentState.blendEnable = blendEnable;
+        return pipelineColorBlendAttachmentState;
+    }
     inline VkDescriptorSetLayoutBinding CreateDescriptorSetLayoutBinding(
             VkDescriptorType type,
             VkShaderStageFlags stageFlags,

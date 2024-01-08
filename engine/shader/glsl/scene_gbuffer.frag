@@ -1,7 +1,9 @@
 #version 450
 
-layout (set = 1, binding = 1) uniform sampler2D samplerColor;
-layout (set = 1, binding = 2) uniform sampler2D samplerNormalMap;
+#extension GL_GOOGLE_include_directive : enable
+#include "debug.glsl"
+layout (set = 1, binding = 0) uniform sampler2D samplerColor;
+layout (set = 1, binding = 1) uniform sampler2D samplerNormalMap;
 
 layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec2 inUV;
@@ -29,4 +31,5 @@ void main()
     outNormal = vec4(tnorm, 1.0);
 
     outAlbedo = texture(samplerColor, inUV);
+    if(outAlbedo.a<0.5)discard;
 }

@@ -132,18 +132,19 @@ namespace MW {
         multisampling.sampleShadingEnable = VK_FALSE;
         multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-        VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-        colorBlendAttachment.colorWriteMask =
-                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                VK_COLOR_COMPONENT_A_BIT;
-        colorBlendAttachment.blendEnable = VK_FALSE;
+        std::array<VkPipelineColorBlendAttachmentState, 4> blendAttachmentStates = {
+                CreatePipelineColorBlendAttachmentState(0xf, VK_FALSE),
+                CreatePipelineColorBlendAttachmentState(0xf, VK_FALSE),
+                CreatePipelineColorBlendAttachmentState(0xf, VK_FALSE),
+                CreatePipelineColorBlendAttachmentState(0xf, VK_FALSE)
+        };
 
         VkPipelineColorBlendStateCreateInfo colorBlending{};
         colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         colorBlending.logicOpEnable = VK_FALSE;
         colorBlending.logicOp = VK_LOGIC_OP_COPY;
-        colorBlending.attachmentCount = 1;
-        colorBlending.pAttachments = &colorBlendAttachment;
+        colorBlending.attachmentCount = blendAttachmentStates.size();
+        colorBlending.pAttachments = blendAttachmentStates.data();
         colorBlending.blendConstants[0] = 0.0f;
         colorBlending.blendConstants[1] = 0.0f;
         colorBlending.blendConstants[2] = 0.0f;
@@ -180,7 +181,7 @@ namespace MW {
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
         pipelineInfo.renderPass = framebuffer.renderPass;
-        pipelineInfo.subpass = 0;
+        pipelineInfo.subpass = main_camera_subpass_g_buffer_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
         device->CreateGraphicsPipelines(&pipelineInfo, &pipelines[0].pipeline);
@@ -191,9 +192,6 @@ namespace MW {
 
     void GBufferPass::draw() {
         auto commandBuffer = device->getCurrentCommandBuffer();
-
-        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[1].layout,
-                                0, 1, &descriptors[0].descriptorSet, 0, nullptr);
 
         vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
                                 0, 1, &descriptors[0].descriptorSet, 0, nullptr);
@@ -219,18 +217,16 @@ namespace MW {
         device->CreateDescriptorSetLayout(&descriptorSetLayoutCreateInfo, &gBufferGlobalDescriptor.layout);
         device->CreateDescriptorSet(1, gBufferGlobalDescriptor.layout, gBufferGlobalDescriptor.descriptorSet);
         std::array<VkDescriptorImageInfo, main_camera_g_buffer_type_count> imageInfos{};
+        std::array<VkWriteDescriptorSet, main_camera_g_buffer_type_count> descriptorWrites{};
         for (int i = 0; i < main_camera_g_buffer_type_count; ++i) {
             imageInfos[i].sampler = VK_NULL_HANDLE; //why NULL_HANDLE
             imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             imageInfos[i].imageView = framebuffer.attachments[i].view;
-        }
-        std::array<VkWriteDescriptorSet, main_camera_g_buffer_type_count> descriptorWrites{};
-        for (int i = 0; i < main_camera_g_buffer_type_count; ++i) {
             descriptorWrites[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrites[i].dstSet = gBufferGlobalDescriptor.descriptorSet;
-            descriptorWrites[i].dstBinding = 1;
+            descriptorWrites[i].dstBinding = i;
             descriptorWrites[i].dstArrayElement = 0;
-            descriptorWrites[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            descriptorWrites[i].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
             descriptorWrites[i].descriptorCount = 1;
             descriptorWrites[i].pImageInfo = &imageInfos[i];
         }

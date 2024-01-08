@@ -14,7 +14,7 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + gltf model loading
 
-+ CSM+PCF
++ Deferred+CSM+PCF
 
 **TODO:**
 

@@ -3,22 +3,7 @@
 #include "debug.glsl"
 
 #define SHADOW_MAP_CASCADE_COUNT 8
-
-layout (input_attachment_index = 0,set = 2,binding = 0) uniform subpassInput inputPosition;
-layout (input_attachment_index = 1,set = 2,binding = 1) uniform subpassInput inputNormal;
-layout (input_attachment_index = 2,set = 2,binding = 2) uniform subpassInput inputAlbedo;
-layout (input_attachment_index = 3,set = 2,binding = 3) uniform subpassInput inputViewPos;
 layout (set = 0, binding = 1) uniform sampler2DArray shadowMap;
-layout (set = 1, binding = 0) uniform sampler2D colorMap;
-
-layout (location = 0) in vec3 inUV;
-
-//layout (constant_id = 0) const int enablePCF = 0;
-
-layout (location = 0) out vec4 outFragColor;
-
-#define ambient 0.3
-
 layout (set = 0, binding = 2) uniform UBO {
     vec4 cascadeSplits[SHADOW_MAP_CASCADE_COUNT/4];
     mat4 cascadeViewProjMat[SHADOW_MAP_CASCADE_COUNT];
@@ -27,6 +12,16 @@ layout (set = 0, binding = 2) uniform UBO {
     float _pad;
     int colorCascades;
 } ubo;
+layout (input_attachment_index = 0,set = 1,binding = 0) uniform subpassInput inputPosition;
+layout (input_attachment_index = 1,set = 1,binding = 1) uniform subpassInput inputNormal;
+layout (input_attachment_index = 2,set = 1,binding = 2) uniform subpassInput inputAlbedo;
+layout (input_attachment_index = 3,set = 1,binding = 3) uniform subpassInput inputViewPos;
+
+//layout (constant_id = 0) const int enablePCF = 0;
+
+layout (location = 0) out vec4 outFragColor;
+
+#define ambient 0.3
 
 const mat4 biasMat = mat4(
 0.5, 0.0, 0.0, 0.0,
@@ -76,7 +71,6 @@ void main()
     vec3 inNormal = subpassLoad(inputNormal).rgb;
     vec4 color = subpassLoad(inputAlbedo);
     vec3 inViewPos = subpassLoad(inputViewPos).xyz;
-
     if (color.a < 0.5) {
         discard;
     }
