@@ -7,14 +7,13 @@
 namespace MW {
     constexpr uint32_t CASCADE_COUNT = 8;
     constexpr uint32_t MIN_CASCADE_COUNT = 4;
-    struct debugPushConstant{
+    struct debugPushConstant {
         uint32_t cascadeIndex;
     };
     struct Cascade {
         float splitDepth;
         glm::mat4 lightProjViewMat;
     };
-
     struct CSMCameraProject {
         glm::mat4 projection;
         glm::mat4 view;
@@ -29,6 +28,12 @@ namespace MW {
         int32_t colorCascades{0};
     };
 
+    struct CSMPassInitInfo : public RenderPassInitInfo {
+        PassBase::Framebuffer* frameBuffer;
+
+        explicit CSMPassInitInfo(const RenderPassInitInfo *info) : RenderPassInitInfo(*info) {};
+    };
+
     class CascadeShadowMapPass : public PassBase {
     public:
         void draw() override;
@@ -39,18 +44,18 @@ namespace MW {
 
         void drawDepth();
 
-    private:
+    protected:
         void setCascadeSplits();
 
         void updateCascade();
 
-        void createRenderPass();
+//        void createRenderPass();
 
         void createUniformBuffer();
 
-        void createDescriptorSets();
+        virtual void createDescriptorSets();
 
-        void createPipelines();
+        virtual void createPipelines();
 
         std::array<Cascade, CASCADE_COUNT> cascades;
         std::shared_ptr<DepthPass> depthPass;

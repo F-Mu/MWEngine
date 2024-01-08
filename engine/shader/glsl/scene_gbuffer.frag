@@ -8,14 +8,17 @@ layout (location = 1) in vec2 inUV;
 layout (location = 2) in vec3 inColor;
 layout (location = 3) in vec3 inWorldPos;
 layout (location = 4) in vec3 inTangent;
+layout (location = 5) in vec3 inViewPos;
 
 layout (location = 0) out vec4 outPosition;
 layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec4 outAlbedo;
+layout (location = 3) out vec4 outViewPosition;
 
 void main()
 {
     outPosition = vec4(inWorldPos, 1.0);
+    outViewPosition = vec4(inViewPos, 1.0);
 
     // Calculate normal in tangent space
     vec3 N = normalize(inNormal);

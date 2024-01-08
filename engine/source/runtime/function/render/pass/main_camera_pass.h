@@ -6,6 +6,8 @@
 namespace MW {
     class CascadeShadowMapPass;
 
+    class GBufferPass;
+
     class MainCameraPass : public PassBase {
     public:
         void initialize(const RenderPassInitInfo *init_info) override;
@@ -20,8 +22,18 @@ namespace MW {
         VulkanBuffer cameraUniformBuffer;
         std::vector<VkFramebuffer> swapChainFramebuffers;
         std::shared_ptr<CascadeShadowMapPass> shadowMapPass;
+        std::shared_ptr<GBufferPass> gBufferPass;
         Model scene;
+
         void loadModel();
+
+        void createAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment);
+
+        void createAttachments();
+
+        void createGBufferSubPass(VkSubpassDescription &subpassDesc);
+
+        void createCSMSubPass(VkSubpassDescription &subpassDesc);
 
         virtual void createRenderPass();
 

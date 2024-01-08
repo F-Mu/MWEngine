@@ -6,13 +6,13 @@
 
 namespace MW {
     struct GBufferPassInitInfo : public RenderPassInitInfo {
-        std::shared_ptr<VkRenderPass> renderPass;
+        PassBase::Framebuffer* frameBuffer;
+
+        explicit GBufferPassInitInfo(const RenderPassInitInfo *info) : RenderPassInitInfo(*info) {};
     };
     struct GBufferCameraProject {
-        glm::mat4 projView;
-    };
-    enum G_BUFFER_TYPE : uint8_t {
-        g_position = 0, g_normal, g_albedo, g_depth, g_count
+        glm::mat4 projection;
+        glm::mat4 view;
     };
 
     class GBufferPass : public PassBase {
@@ -30,9 +30,7 @@ namespace MW {
 
         void createPipelines();
 
-        void createFramebuffers();
-
-        void createAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment);
+        void createGlobalDescriptorSets();
 
         GBufferCameraProject gBufferCameraProject;
         VulkanBuffer cameraUboBuffer;

@@ -11,6 +11,8 @@ namespace MW {
         uint32_t depthImageWidth{DEFAULT_IMAGE_WIDTH};
         uint32_t depthImageHeight{DEFAULT_IMAGE_HEIGHT};
         uint32_t depthArrayLayers{1};
+
+        explicit DepthPassInitInfo(const RenderPassInitInfo *info) : RenderPassInitInfo(*info) {};
     };
 
     struct UniformBufferObject {
