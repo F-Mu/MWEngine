@@ -28,8 +28,8 @@ void main()
     vec3 B = cross(N, T);
     mat3 TBN = mat3(T, B, N);
     vec3 tnorm = TBN * normalize(texture(samplerNormalMap, inUV).xyz * 2.0 - vec3(1.0));
-    outNormal = vec4(tnorm, 1.0);
-
+//    outNormal = vec4(tnorm, 1.0);
+    outNormal = vec4(N, 1.0);
     outAlbedo = texture(samplerColor, inUV);
     if(outAlbedo.a<0.5)discard;
 }

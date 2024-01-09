@@ -22,7 +22,7 @@ namespace MW {
         void initialize(const RenderPassInitInfo *info) override;
 
         void preparePassData() override;
-
+        void updateAfterFramebufferRecreate();
     private:
         void createUniformBuffer();
 
@@ -34,5 +34,6 @@ namespace MW {
 
         GBufferCameraProject gBufferCameraProject;
         VulkanBuffer cameraUboBuffer;
+        Framebuffer* fatherFrameBuffer;
     };
 }

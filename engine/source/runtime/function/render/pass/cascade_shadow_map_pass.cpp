@@ -13,13 +13,13 @@
 #include "depthpass_vert.h"
 
 namespace MW {
-    extern VkDescriptorSetLayout descriptorSetLayoutImage;
+    PassBase::Descriptor CSMGlobalDescriptor;
 
     void CascadeShadowMapPass::initialize(const RenderPassInitInfo *info) {
         PassBase::initialize(info);
 
         const auto *_info = static_cast<const CSMPassInitInfo *>(info);
-        framebuffer = *_info->frameBuffer;
+        fatherFrameBuffer = _info->frameBuffer;
         DepthPassInitInfo depthInfo{info};
         depthInfo.depthArrayLayers = CASCADE_COUNT;
         depthInfo.depthImageWidth = DEFAULT_IMAGE_WIDTH;
@@ -31,6 +31,7 @@ namespace MW {
         createUniformBuffer();
         createDescriptorSets();
         createPipelines();
+        createCSMGlobalDescriptor();
     }
 
     void CascadeShadowMapPass::preparePassData() {
@@ -301,7 +302,7 @@ namespace MW {
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
-        pipelineInfo.renderPass = framebuffer.renderPass;
+        pipelineInfo.renderPass = fatherFrameBuffer->renderPass;
         pipelineInfo.subpass = main_camera_subpass_csm_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -470,5 +471,35 @@ namespace MW {
 
     void CascadeShadowMapPass::drawDepth() {
         depthPass->drawLayer();
+    }
+    void CascadeShadowMapPass::createCSMGlobalDescriptor() {
+        std::vector<VkDescriptorSetLayoutBinding> binding = {
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 0),
+        };
+        VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
+        descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        descriptorSetLayoutCreateInfo.pBindings = binding.data();
+        descriptorSetLayoutCreateInfo.bindingCount = binding.size();
+        device->CreateDescriptorSetLayout(&descriptorSetLayoutCreateInfo, &CSMGlobalDescriptor.layout);
+        device->CreateDescriptorSet(1, CSMGlobalDescriptor.layout, CSMGlobalDescriptor.descriptorSet);
+        VkDescriptorImageInfo imageInfos{};
+        imageInfos.sampler = VK_NULL_HANDLE; //why NULL_HANDLE
+        imageInfos.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfos.imageView = fatherFrameBuffer->attachments[main_camera_shadow].view;
+        VkWriteDescriptorSet descriptorWrites{};
+
+        descriptorWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites.dstSet = CSMGlobalDescriptor.descriptorSet;
+        descriptorWrites.dstBinding = 0;
+        descriptorWrites.dstArrayElement = 0;
+        descriptorWrites.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites.descriptorCount = 1;
+        descriptorWrites.pImageInfo = &imageInfos;
+
+        device->UpdateDescriptorSets(1, &descriptorWrites);
+    }
+
+    void CascadeShadowMapPass::updateAfterFramebufferRecreate() {
+        createCSMGlobalDescriptor();
     }
 }

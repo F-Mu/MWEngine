@@ -29,7 +29,7 @@ namespace MW {
     };
 
     struct CSMPassInitInfo : public RenderPassInitInfo {
-        PassBase::Framebuffer* frameBuffer;
+        PassBase::Framebuffer *frameBuffer;
 
         explicit CSMPassInitInfo(const RenderPassInitInfo *info) : RenderPassInitInfo(*info) {};
     };
@@ -53,6 +53,10 @@ namespace MW {
 
         void createUniformBuffer();
 
+        void createCSMGlobalDescriptor();
+
+        void updateAfterFramebufferRecreate();
+
         virtual void createDescriptorSets();
 
         virtual void createPipelines();
@@ -63,6 +67,7 @@ namespace MW {
         UniformBufferObjectFS shadowMapFSUbo;
         VulkanBuffer cameraUboBuffer;
         VulkanBuffer shadowMapFSBuffer;
+        Framebuffer *fatherFrameBuffer;
         float cascadeSplitLambda{0.95f};
         float cascadeSplits[CASCADE_COUNT];
     };

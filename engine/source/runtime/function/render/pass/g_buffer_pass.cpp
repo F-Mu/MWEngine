@@ -13,13 +13,12 @@
 #include "depthpass_vert.h"
 
 namespace MW {
-    extern VkDescriptorSetLayout descriptorSetLayoutImage;
     PassBase::Descriptor gBufferGlobalDescriptor;
 
     void GBufferPass::initialize(const RenderPassInitInfo *info) {
         PassBase::initialize(info);
         const auto *_info = static_cast<const GBufferPassInitInfo *>(info);
-        framebuffer = *_info->frameBuffer;
+        fatherFrameBuffer = _info->frameBuffer;
         createUniformBuffer();
         createDescriptorSets();
         createPipelines();
@@ -180,7 +179,7 @@ namespace MW {
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
-        pipelineInfo.renderPass = framebuffer.renderPass;
+        pipelineInfo.renderPass = fatherFrameBuffer->renderPass;
         pipelineInfo.subpass = main_camera_subpass_g_buffer_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -221,7 +220,7 @@ namespace MW {
         for (int i = 0; i < main_camera_g_buffer_type_count; ++i) {
             imageInfos[i].sampler = VK_NULL_HANDLE; //why NULL_HANDLE
             imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfos[i].imageView = framebuffer.attachments[i].view;
+            imageInfos[i].imageView = fatherFrameBuffer->attachments[i].view;
             descriptorWrites[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrites[i].dstSet = gBufferGlobalDescriptor.descriptorSet;
             descriptorWrites[i].dstBinding = i;
@@ -231,5 +230,9 @@ namespace MW {
             descriptorWrites[i].pImageInfo = &imageInfos[i];
         }
         device->UpdateDescriptorSets(descriptorWrites.size(), descriptorWrites.data());
+    }
+
+    void GBufferPass::updateAfterFramebufferRecreate() {
+        createGlobalDescriptorSets();
     }
 }

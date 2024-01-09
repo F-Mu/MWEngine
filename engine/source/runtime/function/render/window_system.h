@@ -75,6 +75,8 @@ namespace MW {
             return glfwGetMouseButton(window, button) == GLFW_PRESS;
         }
 
+        void setTitle(const char *title);
+
     protected:
         // window event callbacks
         static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {

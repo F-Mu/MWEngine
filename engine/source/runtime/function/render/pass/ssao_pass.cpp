@@ -1,13 +1,33 @@
-#include "deferred_csm_pass.h"
-#include "function/global/engine_global_context.h"
-#include "function/render/scene_manager.h"
+#include "ssao_pass.h"
+#include "function/render/render_model.h"
 #include "deferred_vert.h"
-#include "deferred_csm_frag.h"
-
-namespace MW {
+#include "ssao_frag.h"
+namespace MW{
     extern PassBase::Descriptor gBufferGlobalDescriptor;
+    void SSAOPass::initialize(const RenderPassInitInfo *info) {
+        PassBase::initialize(info);
 
-    void DeferredCSMPass::createPipelines() {
+        const auto *_info = static_cast<const SSAOPassInitInfo *>(info);
+        framebuffer = *_info->frameBuffer;
+
+//        createRenderPass();
+        createDescriptorSets();
+        createPipelines();
+    }
+
+    void SSAOPass::preparePassData() {
+        PassBase::preparePassData();
+    }
+
+    void SSAOPass::createUniformBuffer() {
+
+    }
+
+    void SSAOPass::createDescriptorSets() {
+
+    }
+
+    void SSAOPass::createPipelines() {
         pipelines.resize(1);
         std::vector<VkDescriptorSetLayout> layouts = {descriptors[0].layout, gBufferGlobalDescriptor.layout};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -18,7 +38,7 @@ namespace MW {
         device->CreatePipelineLayout(&pipelineLayoutInfo, &pipelines[0].layout);
 
         auto vertShaderModule = device->CreateShaderModule(DEFERRED_VERT);
-        auto fragShaderModule = device->CreateShaderModule(DEFERRED_CSM_FRAG);
+        auto fragShaderModule = device->CreateShaderModule(SSAO_FRAG);
 
         VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -112,8 +132,8 @@ namespace MW {
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
-        pipelineInfo.renderPass = fatherFrameBuffer->renderPass;
-        pipelineInfo.subpass = main_camera_subpass_csm_pass;
+        pipelineInfo.renderPass = framebuffer.renderPass;
+        pipelineInfo.subpass = main_camera_subpass_ssao_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
         device->CreateGraphicsPipelines(&pipelineInfo, &pipelines[0].pipeline);
@@ -122,18 +142,12 @@ namespace MW {
         device->DestroyShaderModule(vertShaderModule);
     }
 
-    void DeferredCSMPass::draw() {
+    void SSAOPass::draw() {
         auto commandBuffer = device->getCurrentCommandBuffer();
-
         vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
-                                0, 1, &descriptors[0].descriptorSet, 0, nullptr);
-
-        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
-                                1, 1, &gBufferGlobalDescriptor.descriptorSet, 0, nullptr);
+                                0, 1, &gBufferGlobalDescriptor.descriptorSet, 0, nullptr);
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     }
-
-
 }

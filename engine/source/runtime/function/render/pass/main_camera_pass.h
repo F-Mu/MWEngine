@@ -5,7 +5,7 @@
 
 namespace MW {
     class CascadeShadowMapPass;
-
+    class ShadingPass;
     class GBufferPass;
 
     class MainCameraPass : public PassBase {
@@ -22,6 +22,7 @@ namespace MW {
         VulkanBuffer cameraUniformBuffer;
         std::vector<VkFramebuffer> swapChainFramebuffers;
         std::shared_ptr<CascadeShadowMapPass> shadowMapPass;
+        std::shared_ptr<ShadingPass> shadingPass;
         std::shared_ptr<GBufferPass> gBufferPass;
         Model scene;
 

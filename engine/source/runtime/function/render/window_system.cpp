@@ -31,4 +31,6 @@ namespace MW {
         glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
 
     }
+    void WindowSystem::setTitle(const char* title) { glfwSetWindowTitle(window, title); }
+
 }

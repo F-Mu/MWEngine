@@ -1,15 +1,23 @@
-#include "deferred_csm_pass.h"
-#include "function/global/engine_global_context.h"
-#include "function/render/scene_manager.h"
+#include "shading_pass.h"
+#include "function/render/render_model.h"
 #include "deferred_vert.h"
-#include "deferred_csm_frag.h"
+#include "shading_frag.h"
 
 namespace MW {
-    extern PassBase::Descriptor gBufferGlobalDescriptor;
+    extern PassBase::Descriptor CSMGlobalDescriptor;
 
-    void DeferredCSMPass::createPipelines() {
+    void ShadingPass::initialize(const RenderPassInitInfo *info) {
+        PassBase::initialize(info);
+
+        const auto *_info = static_cast<const ShadingPassInitInfo *>(info);
+        fatherFrameBuffer = _info->frameBuffer;
+
+        createPipelines();
+    }
+
+    void ShadingPass::createPipelines() {
         pipelines.resize(1);
-        std::vector<VkDescriptorSetLayout> layouts = {descriptors[0].layout, gBufferGlobalDescriptor.layout};
+        std::vector<VkDescriptorSetLayout> layouts = {CSMGlobalDescriptor.layout};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = layouts.size();
@@ -18,7 +26,7 @@ namespace MW {
         device->CreatePipelineLayout(&pipelineLayoutInfo, &pipelines[0].layout);
 
         auto vertShaderModule = device->CreateShaderModule(DEFERRED_VERT);
-        auto fragShaderModule = device->CreateShaderModule(DEFERRED_CSM_FRAG);
+        auto fragShaderModule = device->CreateShaderModule(SHADING_FRAG);
 
         VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
         vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -113,7 +121,7 @@ namespace MW {
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
         pipelineInfo.renderPass = fatherFrameBuffer->renderPass;
-        pipelineInfo.subpass = main_camera_subpass_csm_pass;
+        pipelineInfo.subpass = main_camera_subpass_shading_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
         device->CreateGraphicsPipelines(&pipelineInfo, &pipelines[0].pipeline);
@@ -122,18 +130,12 @@ namespace MW {
         device->DestroyShaderModule(vertShaderModule);
     }
 
-    void DeferredCSMPass::draw() {
+    void ShadingPass::draw() {
         auto commandBuffer = device->getCurrentCommandBuffer();
-
         vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
-                                0, 1, &descriptors[0].descriptorSet, 0, nullptr);
-
-        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
-                                1, 1, &gBufferGlobalDescriptor.descriptorSet, 0, nullptr);
+                                0, 1, &CSMGlobalDescriptor.descriptorSet, 0, nullptr);
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     }
-
-
 }
