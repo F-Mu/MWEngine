@@ -67,7 +67,7 @@ namespace MW {
         UniformBufferObjectFS shadowMapFSUbo;
         VulkanBuffer cameraUboBuffer;
         VulkanBuffer shadowMapFSBuffer;
-        Framebuffer *fatherFrameBuffer;
+        Framebuffer *fatherFramebuffer;
         float cascadeSplitLambda{0.95f};
         float cascadeSplits[CASCADE_COUNT];
     };

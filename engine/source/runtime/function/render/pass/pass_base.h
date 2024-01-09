@@ -15,22 +15,22 @@ namespace MW {
         main_camera_g_buffer_type_count = 4,
         //
         main_camera_shadow = 4,
-//        main_camera_ao = 5,
-        main_camera_custom_type_count = 1,
+        main_camera_ao = 5,
+        main_camera_custom_type_count = 2,
         //
-        main_camera_depth = 5,
-        main_camera_swap_chain_image = 6,
+        main_camera_depth = 6,
+        main_camera_swap_chain_image = 7,
         //
         main_camera_post_process_type_count = 0,
-        main_camera_type_count = 7
+        main_camera_type_count = 8
     };
 
     enum {
         main_camera_subpass_g_buffer_pass = 0,
         main_camera_subpass_csm_pass = 1,
-        main_camera_subpass_shading_pass = 2,
-        main_camera_subpass_ssao_pass = 3,
-        main_camera_subpass_count = 3
+        main_camera_subpass_ssao_pass = 2,
+        main_camera_subpass_shading_pass = 3,
+        main_camera_subpass_count = 4
     };
     struct RenderPassInitInfo {
         std::shared_ptr<VulkanDevice> device;

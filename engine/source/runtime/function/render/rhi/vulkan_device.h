@@ -72,7 +72,8 @@ namespace MW {
         QueueFamilyIndices findPhysicalQueueFamilies() { return findQueueFamilies(physicalDevice); }
 
         VkFormat findSupportedFormat(
-                const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features,bool checkSamplingSupport=false);
+                const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features,
+                bool checkSamplingSupport = false);
 
         void findFunctionRequired();
 
@@ -143,6 +144,8 @@ namespace MW {
                                           VkPipelineCache pipelineCache = VK_NULL_HANDLE,
                                           const VkAllocationCallbacks *pAllocator = nullptr);
 
+        VkSampler getOrCreateDefaultSampler(VkFilter filter);
+
         void CreateComputePipelines(VkPipelineCache pipelineCache, uint32_t CreateInfoCount,
                                     const VkComputePipelineCreateInfo *pCreateInfos, VkPipeline *pPipelines,
                                     const VkAllocationCallbacks *pAllocator = nullptr);
@@ -168,6 +171,10 @@ namespace MW {
 
         void copyBufferToImage(
                 VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
+
+        void copyBufferToImage(
+                VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount,
+                VkBufferImageCopy *region);
 
         void CreateImageWithInfo(const VkImageCreateInfo &imageInfo,
                                  VkMemoryPropertyFlags propertiesFlags,
@@ -267,7 +274,7 @@ namespace MW {
 
         void MapMemory(VulkanBuffer &vulkanBuffer, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
-        void MapMemory(VkDeviceMemory memory,void* mapped, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+        void MapMemory(VkDeviceMemory memory, void *mapped, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
         void flushBuffer(VulkanBuffer &buffer, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
@@ -320,7 +327,7 @@ namespace MW {
 
         void resetCommandPool();
 
-        VkFormat findDepthFormat(bool checkSamplingSupport=false);
+        VkFormat findDepthFormat(bool checkSamplingSupport = false);
 
         VkResult acquireNextImage(uint32_t *imageIndex);
 
@@ -450,6 +457,7 @@ namespace MW {
         uint32_t maxMaterialCount{256};
 
         void createSwapChain();
+        void createDefaultSampler(VkFilter filter,VkSampler *sampler);
 
         void createSwapChainImageViews();
 
@@ -470,6 +478,8 @@ namespace MW {
 
         VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
+        VkSampler defaultNearestSampler = VK_NULL_HANDLE;
+        VkSampler defaultLinearSampler = VK_NULL_HANDLE;
         PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR;
         PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR;
         PFN_vkDestroyAccelerationStructureKHR vkDestroyAccelerationStructureKHR;

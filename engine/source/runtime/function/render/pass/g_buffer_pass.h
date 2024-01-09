@@ -34,6 +34,6 @@ namespace MW {
 
         GBufferCameraProject gBufferCameraProject;
         VulkanBuffer cameraUboBuffer;
-        Framebuffer* fatherFrameBuffer;
+        Framebuffer* fatherFramebuffer;
     };
 }

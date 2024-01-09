@@ -112,7 +112,7 @@ namespace MW {
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
-        pipelineInfo.renderPass = fatherFrameBuffer->renderPass;
+        pipelineInfo.renderPass = fatherFramebuffer->renderPass;
         pipelineInfo.subpass = main_camera_subpass_csm_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 

@@ -7,6 +7,7 @@
 #include "cascade_shadow_map_pass.h"
 #include "g_buffer_pass.h"
 #include "deferred_csm_pass.h"
+#include "ssao_pass.h"
 #include "function/global/engine_global_context.h"
 #include "function/render/scene_manager.h"
 #include "shading_pass.h"
@@ -29,10 +30,17 @@ namespace MW {
         GBufferPassInitInfo gBufferInfo(init_info);
         gBufferInfo.frameBuffer = &framebuffer;
         gBufferPass->initialize(&gBufferInfo);
+
         shadowMapPass = std::make_shared<DeferredCSMPass>();
         CSMPassInitInfo csmInfo(init_info);
         csmInfo.frameBuffer = &framebuffer;
         shadowMapPass->initialize(&csmInfo);
+
+        ssaoPass = std::make_shared<SSAOPass>();
+        SSAOPassInitInfo ssaoInfo(init_info);
+        ssaoInfo.frameBuffer = &framebuffer;
+        ssaoPass->initialize(&ssaoInfo);
+
         shadingPass = std::make_shared<ShadingPass>();
         ShadingPassInitInfo shadingInfo(init_info);
         shadingInfo.frameBuffer = &framebuffer;
@@ -127,12 +135,31 @@ namespace MW {
         subpassDescs[main_camera_subpass_csm_pass].pColorAttachments = CSMOutputAttachmentReferences.data();
         subpassDescs[main_camera_subpass_csm_pass].pDepthStencilAttachment = &depthAttachmentReference;
 
+        // Create SSAO SubPass;
+        std::array<VkAttachmentReference, 2> SSAOInputAttachmentReferences{};
+        SSAOInputAttachmentReferences[g_buffer_position].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        SSAOInputAttachmentReferences[g_buffer_position].attachment = g_buffer_position;
+        SSAOInputAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        SSAOInputAttachmentReferences[g_buffer_normal].attachment = g_buffer_normal;
+
+        std::array<VkAttachmentReference, 1> SSAOOutputAttachmentReferences{};
+        SSAOOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        SSAOOutputAttachmentReferences[0].attachment = main_camera_ao;
+
+        subpassDescs[main_camera_subpass_ssao_pass].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpassDescs[main_camera_subpass_ssao_pass].inputAttachmentCount = SSAOInputAttachmentReferences.size();
+        subpassDescs[main_camera_subpass_ssao_pass].pInputAttachments = SSAOInputAttachmentReferences.data();
+        subpassDescs[main_camera_subpass_ssao_pass].colorAttachmentCount = SSAOOutputAttachmentReferences.size();
+        subpassDescs[main_camera_subpass_ssao_pass].pColorAttachments = SSAOOutputAttachmentReferences.data();
+        subpassDescs[main_camera_subpass_ssao_pass].pDepthStencilAttachment = &depthAttachmentReference;
+
         // Create Shading SubPass;
-        std::array<VkAttachmentReference, 1> ShadingInputAttachmentReferences{};
+        std::array<VkAttachmentReference, 2> ShadingInputAttachmentReferences{};
         ShadingInputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         ShadingInputAttachmentReferences[0].attachment = main_camera_shadow;
+        ShadingInputAttachmentReferences[1].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        ShadingInputAttachmentReferences[1].attachment = main_camera_ao;
 
-        // Create CSM SubPass;
         std::array<VkAttachmentReference, 1> ShadingOutputAttachmentReferences{};
         ShadingOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         ShadingOutputAttachmentReferences[0].attachment = main_camera_swap_chain_image;
@@ -143,7 +170,7 @@ namespace MW {
         subpassDescs[main_camera_subpass_shading_pass].pColorAttachments = ShadingOutputAttachmentReferences.data();
         subpassDescs[main_camera_subpass_shading_pass].pDepthStencilAttachment = &depthAttachmentReference;
 
-        std::array<VkSubpassDependency, 3> dependencies = {};
+        std::array<VkSubpassDependency, 6> dependencies = {};
         dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
         dependencies[0].dstSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -159,20 +186,48 @@ namespace MW {
         dependencies[1].dstStageMask =
                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
         dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+        dependencies[1].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
 
         dependencies[2].srcSubpass = main_camera_subpass_csm_pass;
         dependencies[2].dstSubpass = main_camera_subpass_shading_pass;
         dependencies[2].srcStageMask =
                 VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         dependencies[2].dstStageMask =
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
         dependencies[2].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[2].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+        dependencies[2].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[2].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
+        dependencies[3].srcSubpass = main_camera_subpass_g_buffer_pass;
+        dependencies[3].dstSubpass = main_camera_subpass_ssao_pass;
+        dependencies[3].srcStageMask =
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[3].dstStageMask =
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dependencies[3].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[3].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+        dependencies[3].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+        dependencies[4].srcSubpass = main_camera_subpass_ssao_pass;
+        dependencies[4].dstSubpass = main_camera_subpass_shading_pass;
+        dependencies[4].srcStageMask =
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[4].dstStageMask =
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dependencies[4].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[4].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+        dependencies[4].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+        dependencies[5].srcSubpass = main_camera_subpass_csm_pass;
+        dependencies[5].dstSubpass = main_camera_subpass_ssao_pass;
+        dependencies[5].srcStageMask =
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dependencies[5].dstStageMask =
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dependencies[5].srcAccessMask = VK_ACCESS_NONE_KHR;
+        dependencies[5].dstAccessMask = VK_ACCESS_NONE_KHR;
+        dependencies[5].dependencyFlags = 0;
         VkRenderPassCreateInfo renderPassInfo = {};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
         renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -367,6 +422,7 @@ namespace MW {
                     framebuffer.attachments[g_buffer_albedo].view,
                     framebuffer.attachments[g_buffer_view_position].view,
                     framebuffer.attachments[main_camera_shadow].view,
+                    framebuffer.attachments[main_camera_ao].view,
                     device->getDepthImageInfo().depthImageView,
                     device->getSwapchainInfo().imageViews[i]};
 
@@ -393,7 +449,7 @@ namespace MW {
         renderPassInfo.renderArea.offset = {0, 0};
         renderPassInfo.renderArea.extent = device->getSwapchainInfo().extent;
 
-        std::array<VkClearValue, main_camera_g_buffer_type_count +main_camera_custom_type_count + 2> clearColors{};
+        std::array<VkClearValue, main_camera_g_buffer_type_count + main_camera_custom_type_count + 2> clearColors{};
         for (int i = 0; i < main_camera_g_buffer_type_count + main_camera_custom_type_count; ++i)
             clearColors[i] = {{0.0f, 0.0f, 0.0f, 1.0f}};
         clearColors[main_camera_depth] = {1.0f, 0};
@@ -419,7 +475,9 @@ namespace MW {
         vkCmdNextSubpass(device->getCurrentCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
 
         shadowMapPass->draw();
+        vkCmdNextSubpass(device->getCurrentCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
 
+        ssaoPass->draw();
         vkCmdNextSubpass(device->getCurrentCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
 
         shadingPass->draw();
@@ -460,6 +518,7 @@ namespace MW {
         updateCamera();
         gBufferPass->preparePassData();
         shadowMapPass->preparePassData();
+        ssaoPass->preparePassData();
     }
 
     void MainCameraPass::loadModel() {
@@ -495,7 +554,7 @@ namespace MW {
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.format = format;
-        imageInfo.usage = usage | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+        imageInfo.usage = usage | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         device->CreateImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, attachment->image, attachment->mem);
 
         VkImageViewCreateInfo viewInfo{};
@@ -533,5 +592,9 @@ namespace MW {
         // shadow (color)
         createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                          &framebuffer.attachments[main_camera_shadow]);
+
+        // ssao (color)
+        createAttachment(VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                         &framebuffer.attachments[main_camera_ao]);
     }
 }

@@ -2,10 +2,13 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
+#include <memory>
 
 namespace MW {
+    class VulkanDevice;
 
     struct VulkanBuffer {
+        VkDescriptorBufferInfo descriptor;
         void *mapped = nullptr;
         VkBuffer buffer = VK_NULL_HANDLE;
         VkDeviceMemory memory = VK_NULL_HANDLE;
@@ -13,6 +16,36 @@ namespace MW {
         VkDeviceSize bufferSize;
         VkBufferUsageFlags usageFlags;
         VkMemoryPropertyFlags memoryPropertyFlags;
+        void setupDescriptor(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+    };
+
+    struct VulkanTexture {
+        VkImage image;
+        VkImageLayout imageLayout;
+        VkDeviceMemory deviceMemory;
+        VkImageView view;
+        uint32_t width, height;
+        uint32_t mipLevels;
+        uint32_t layerCount;
+        VkDescriptorImageInfo descriptor;
+        VkSampler sampler;
+
+        void updateDescriptor();
+
+        void destroy(std::shared_ptr<VulkanDevice> device);
+    };
+
+    struct VulkanTexture2D : public VulkanTexture {
+        void fromBuffer(
+                void *buffer,
+                VkDeviceSize bufferSize,
+                VkFormat format,
+                uint32_t texWidth,
+                uint32_t texHeight,
+                std::shared_ptr<VulkanDevice> device,
+                VkFilter filter = VK_FILTER_LINEAR,
+                VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
+                VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     };
 
     struct VulkanMesh {
@@ -35,8 +68,7 @@ namespace MW {
         VkFormat depthImageFormat;
     };
 
-    struct RayTracingScratchBuffer
-    {
+    struct RayTracingScratchBuffer {
         uint64_t deviceAddress = 0;
         VkBuffer handle = VK_NULL_HANDLE;
         VkDeviceMemory memory = VK_NULL_HANDLE;

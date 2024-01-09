@@ -10,11 +10,11 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + Simple rasterization
 
-+ Simple ray-tracing
++ Simple ray-tracing (1 SPP)
 
 + gltf model loading
 
-+ Deferred+CSM+PCF
++ Deferred+CSM+PCF+SSAO(under repair)
 
 **TODO:**
 
@@ -26,10 +26,8 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + Implement different types of cameras 
 
-+ More render passes after learning more graphics knowledge
++ More render passes after learning more graphics knowledge (continued)
 
 + ~~Become a game engine,having editor mode and game mode~~
-
-+ AO
 
 + Clean up

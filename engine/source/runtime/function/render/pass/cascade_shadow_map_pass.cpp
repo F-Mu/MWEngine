@@ -19,7 +19,7 @@ namespace MW {
         PassBase::initialize(info);
 
         const auto *_info = static_cast<const CSMPassInitInfo *>(info);
-        fatherFrameBuffer = _info->frameBuffer;
+        fatherFramebuffer = _info->frameBuffer;
         DepthPassInitInfo depthInfo{info};
         depthInfo.depthArrayLayers = CASCADE_COUNT;
         depthInfo.depthImageWidth = DEFAULT_IMAGE_WIDTH;
@@ -126,12 +126,12 @@ namespace MW {
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 cameraUboBuffer,
                 sizeof(csmCameraProject));
+        device->MapMemory(cameraUboBuffer);
         device->CreateBuffer(
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                 shadowMapFSBuffer,
                 sizeof(shadowMapFSUbo));
-        device->MapMemory(cameraUboBuffer);
         device->MapMemory(shadowMapFSBuffer);
     }
 
@@ -302,7 +302,7 @@ namespace MW {
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
-        pipelineInfo.renderPass = fatherFrameBuffer->renderPass;
+        pipelineInfo.renderPass = fatherFramebuffer->renderPass;
         pipelineInfo.subpass = main_camera_subpass_csm_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -396,45 +396,6 @@ namespace MW {
 
     void CascadeShadowMapPass::draw() {
         auto commandBuffer = device->getCurrentCommandBuffer();
-//        VkClearValue clearValues[2];
-//        clearValues[0].color = {{0.0f, 0.0f, 0.2f, 1.0f}};
-//        clearValues[1].depthStencil = {1.0f, 0};
-//
-//        VkRenderPassBeginInfo renderPassBeginInfo{};
-//        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-//        renderPassBeginInfo.renderPass = framebuffer.renderPass;
-//        renderPassBeginInfo.framebuffer = nowFramebuffer;
-//        renderPassBeginInfo.renderArea.offset = {0, 0};
-//        renderPassBeginInfo.renderArea.extent = device->getSwapchainInfo().extent;
-//        renderPassBeginInfo.clearValueCount = 2;
-//        renderPassBeginInfo.pClearValues = clearValues;
-//
-//        vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-//
-//
-//        VkViewport viewport{};
-//        viewport.x = 0.0f;
-//        viewport.y = 0.0f;
-//        viewport.width = (float) device->getSwapchainInfo().extent.width;
-//        viewport.height = (float) device->getSwapchainInfo().extent.height;
-//        viewport.minDepth = 0.0f;
-//        viewport.maxDepth = 1.0f;
-//        vkCmdSetViewport(device->getCurrentCommandBuffer(), 0, 1, &viewport);
-//
-//        vkCmdSetScissor(device->getCurrentCommandBuffer(), 0, 1, device->getSwapchainInfo().scissor);
-//
-
-//        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[1].layout,
-//                                0, 1, &descriptors[0].descriptorSet, 0, nullptr);
-
-//        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[1].pipeline);
-
-//        debugPushConstant pushConstant;
-//        pushConstant.cascadeIndex = 0;
-//        vkCmdPushConstants(commandBuffer, pipelines[1].layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(debugPushConstant), &pushConstant);
-//        vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-
         vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
                                 0, 1, &descriptors[0].descriptorSet, 0, nullptr);
 
@@ -443,8 +404,6 @@ namespace MW {
         PushConstBlock pushConstant;
         engineGlobalContext.getScene()->draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages,
                                              pipelines[0].layout, 1, &pushConstant, sizeof(pushConstant));
-
-//        vkCmdEndRenderPass(commandBuffer);
     }
 
     void CascadeShadowMapPass::setCascadeSplits() {
@@ -485,7 +444,7 @@ namespace MW {
         VkDescriptorImageInfo imageInfos{};
         imageInfos.sampler = VK_NULL_HANDLE; //why NULL_HANDLE
         imageInfos.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfos.imageView = fatherFrameBuffer->attachments[main_camera_shadow].view;
+        imageInfos.imageView = fatherFramebuffer->attachments[main_camera_shadow].view;
         VkWriteDescriptorSet descriptorWrites{};
 
         descriptorWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

@@ -1,35 +1,115 @@
 #include "ssao_pass.h"
 #include "function/render/render_model.h"
+#include "function/render/render_resource.h"
 #include "deferred_vert.h"
 #include "ssao_frag.h"
-namespace MW{
+#include <random>
+
+namespace MW {
     extern PassBase::Descriptor gBufferGlobalDescriptor;
+    PassBase::Descriptor SSAOGlobalDescriptor;
+
+    constexpr float lerp(float a, float b, float f) {
+        return a + f * (b - a);
+    }
+
     void SSAOPass::initialize(const RenderPassInitInfo *info) {
         PassBase::initialize(info);
 
         const auto *_info = static_cast<const SSAOPassInitInfo *>(info);
-        framebuffer = *_info->frameBuffer;
-
-//        createRenderPass();
+        fatherFramebuffer = _info->frameBuffer;
+        createUniformBuffer();
         createDescriptorSets();
         createPipelines();
+        createSSAOGlobalDescriptor();
     }
 
     void SSAOPass::preparePassData() {
-        PassBase::preparePassData();
+        SSAOUbo.projection = renderResource->cameraObject.projMatrix;
+        memcpy(cameraUboBuffer.mapped, &SSAOUbo, sizeof(SSAOUbo));
     }
 
     void SSAOPass::createUniformBuffer() {
+        device->CreateBuffer(
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                cameraUboBuffer,
+                sizeof(SSAOUbo));
+        device->MapMemory(cameraUboBuffer);
+        // SSAO
+        std::default_random_engine rndEngine((unsigned) time(nullptr));
+        std::uniform_real_distribution<float> rndDist(0.0f, 1.0f);
 
+        // Sample kernel
+        std::vector<glm::vec4> ssaoKernel(SSAO_KERNEL_SIZE);
+        for (uint32_t i = 0; i < SSAO_KERNEL_SIZE; ++i) {
+            glm::vec3 sample(rndDist(rndEngine) * 2.0 - 1.0, rndDist(rndEngine) * 2.0 - 1.0, rndDist(rndEngine));
+            sample = glm::normalize(sample);
+            sample *= rndDist(rndEngine);
+            float scale = float(i) / float(SSAO_KERNEL_SIZE);
+            scale = lerp(0.1f, 1.0f, scale * scale);
+            ssaoKernel[i] = glm::vec4(sample * scale, 0.0f);
+        }
+        // Upload as UBO
+        device->CreateBuffer(
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                SSAOKernelBuffer,
+                ssaoKernel.size() * sizeof(glm::vec4),
+                ssaoKernel.data());
+
+        // Random noise
+        std::vector<glm::vec4> ssaoNoise(SSAO_NOISE_DIM * SSAO_NOISE_DIM);
+        for (uint32_t i = 0; i < static_cast<uint32_t>(ssaoNoise.size()); i++)
+            ssaoNoise[i] = glm::vec4(rndDist(rndEngine) * 2.0f - 1.0f, rndDist(rndEngine) * 2.0f - 1.0f, 0.0f, 0.0f);
+        // Upload as texture
+        SSAONoise.fromBuffer(ssaoNoise.data(), ssaoNoise.size() * sizeof(glm::vec4), VK_FORMAT_R32G32B32A32_SFLOAT,
+                             SSAO_NOISE_DIM, SSAO_NOISE_DIM, device, VK_FILTER_NEAREST);
     }
 
     void SSAOPass::createDescriptorSets() {
-
+        descriptors.resize(1);
+        std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                 VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                 0),                        // FS Position+Depth
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                 VK_SHADER_STAGE_FRAGMENT_BIT, 1),                        // FS Normals
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                 VK_SHADER_STAGE_FRAGMENT_BIT, 2),
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 3),
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 4)
+        };
+        auto setLayoutCreateInfo = CreateDescriptorSetLayoutCreateInfo(setLayoutBindings.data(),
+                                                                       static_cast<uint32_t>(setLayoutBindings.size()));
+        device->CreateDescriptorSetLayout(&setLayoutCreateInfo, &descriptors[0].layout);
+        device->CreateDescriptorSet(1, descriptors[0].layout, descriptors[0].descriptorSet);
+        std::vector<VkDescriptorImageInfo> imageDescriptors = {
+                CreateDescriptorImageInfo(device->getOrCreateDefaultSampler(VK_FILTER_NEAREST),
+                                          fatherFramebuffer->attachments[g_buffer_view_position].view,
+                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+                CreateDescriptorImageInfo(device->getOrCreateDefaultSampler(VK_FILTER_NEAREST),
+                                          fatherFramebuffer->attachments[g_buffer_normal].view,
+                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+        };
+        std::vector<VkWriteDescriptorSet> writeDescriptorSets = {
+                CreateWriteDescriptorSet(descriptors[0].descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0,
+                                         &imageDescriptors[0]),                    // FS Position+Depth
+                CreateWriteDescriptorSet(descriptors[0].descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+                                         &imageDescriptors[1]),                    // FS Normals
+                CreateWriteDescriptorSet(descriptors[0].descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2,
+                                         &SSAONoise.descriptor),        // FS SSAO Noise
+                CreateWriteDescriptorSet(descriptors[0].descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3,
+                                         &SSAOKernelBuffer.descriptor),        // FS SSAO Kernel UBO
+                CreateWriteDescriptorSet(descriptors[0].descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4,
+                                         &cameraUboBuffer.descriptor),        // FS SSAO Params UBO
+        };
+        device->UpdateDescriptorSets(static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data());
     }
 
     void SSAOPass::createPipelines() {
         pipelines.resize(1);
-        std::vector<VkDescriptorSetLayout> layouts = {descriptors[0].layout, gBufferGlobalDescriptor.layout};
+        std::vector<VkDescriptorSetLayout> layouts = {descriptors[0].layout};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = layouts.size();
@@ -46,12 +126,24 @@ namespace MW{
         vertShaderStageInfo.module = vertShaderModule;
         vertShaderStageInfo.pName = "main";
 
+        struct SpecializationData {
+            uint32_t kernelSize = SSAO_KERNEL_SIZE;
+            float radius = SSAO_RADIUS;
+        } specializationData;
+        std::array<VkSpecializationMapEntry, 2> specializationMapEntries = {
+                CreateSpecializationMapEntry(0, offsetof(SpecializationData, kernelSize),
+                                             sizeof(SpecializationData::kernelSize)),
+                CreateSpecializationMapEntry(1, offsetof(SpecializationData, radius),
+                                             sizeof(SpecializationData::radius))
+        };
+        auto specializationInfo = CreateSpecializationInfo(2, specializationMapEntries.data(),
+                                                           sizeof(specializationData), &specializationData);
         VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
         fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
         fragShaderStageInfo.module = fragShaderModule;
         fragShaderStageInfo.pName = "main";
-
+        fragShaderStageInfo.pSpecializationInfo = &specializationInfo;
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
         std::vector<VertexComponent> components{};
@@ -132,7 +224,7 @@ namespace MW{
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
-        pipelineInfo.renderPass = framebuffer.renderPass;
+        pipelineInfo.renderPass = fatherFramebuffer->renderPass;
         pipelineInfo.subpass = main_camera_subpass_ssao_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -145,9 +237,37 @@ namespace MW{
     void SSAOPass::draw() {
         auto commandBuffer = device->getCurrentCommandBuffer();
         vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
-                                0, 1, &gBufferGlobalDescriptor.descriptorSet, 0, nullptr);
+                                0, 1, &descriptors[0].descriptorSet, 0, nullptr);
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
     }
+
+    void SSAOPass::createSSAOGlobalDescriptor() {
+        std::vector<VkDescriptorSetLayoutBinding> binding = {
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 0),
+        };
+        VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
+        descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        descriptorSetLayoutCreateInfo.pBindings = binding.data();
+        descriptorSetLayoutCreateInfo.bindingCount = binding.size();
+        device->CreateDescriptorSetLayout(&descriptorSetLayoutCreateInfo, &SSAOGlobalDescriptor.layout);
+        device->CreateDescriptorSet(1, SSAOGlobalDescriptor.layout, SSAOGlobalDescriptor.descriptorSet);
+        VkDescriptorImageInfo imageInfos{};
+        imageInfos.sampler = VK_NULL_HANDLE; //why NULL_HANDLE
+        imageInfos.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfos.imageView = fatherFramebuffer->attachments[main_camera_ao].view;
+        VkWriteDescriptorSet descriptorWrites{};
+
+        descriptorWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites.dstSet = SSAOGlobalDescriptor.descriptorSet;
+        descriptorWrites.dstBinding = 0;
+        descriptorWrites.dstArrayElement = 0;
+        descriptorWrites.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites.descriptorCount = 1;
+        descriptorWrites.pImageInfo = &imageInfos;
+
+        device->UpdateDescriptorSets(1, &descriptorWrites);
+    }
+
 }

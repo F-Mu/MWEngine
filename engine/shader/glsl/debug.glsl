@@ -1,12 +1,18 @@
 #extension GL_EXT_debug_printf : enable
 void print(float x){
-    debugPrintfEXT("float:%f\n",x);
+    debugPrintfEXT("float:%f\n", x);
+}
+void print(float x,float y){
+    debugPrintfEXT("float:%f;%f\n", x,y);
 }
 void print(vec3 vec){
     debugPrintfEXT("vec3:%f,%f,%f\n", vec.x, vec.y, vec.z);
 }
 void print(vec4 vec){
     debugPrintfEXT("vec4:%f,%f,%f,%f\n", vec.x, vec.y, vec.z, vec.w);
+}
+void print(vec3 vec, vec3 vecy){
+    debugPrintfEXT("vec3:%f,%f,%f;%f,%f,%f\n", vec.x, vec.y, vec.z, vecy.x, vecy.y, vecy.z);
 }
 void print(mat4 mat){
     debugPrintfEXT("mat4:%f,%f,%f,%f\n    %f,%f,%f,%f\n    %f,%f,%f,%f\n    %f,%f,%f,%f\n",

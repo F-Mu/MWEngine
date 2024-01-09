@@ -7,6 +7,7 @@ namespace MW {
     class CascadeShadowMapPass;
     class ShadingPass;
     class GBufferPass;
+    class SSAOPass;
 
     class MainCameraPass : public PassBase {
     public:
@@ -21,6 +22,7 @@ namespace MW {
     protected:
         VulkanBuffer cameraUniformBuffer;
         std::vector<VkFramebuffer> swapChainFramebuffers;
+        std::shared_ptr<SSAOPass> ssaoPass;
         std::shared_ptr<CascadeShadowMapPass> shadowMapPass;
         std::shared_ptr<ShadingPass> shadingPass;
         std::shared_ptr<GBufferPass> gBufferPass;

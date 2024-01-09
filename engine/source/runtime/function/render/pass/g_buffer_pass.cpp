@@ -18,7 +18,7 @@ namespace MW {
     void GBufferPass::initialize(const RenderPassInitInfo *info) {
         PassBase::initialize(info);
         const auto *_info = static_cast<const GBufferPassInitInfo *>(info);
-        fatherFrameBuffer = _info->frameBuffer;
+        fatherFramebuffer = _info->frameBuffer;
         createUniformBuffer();
         createDescriptorSets();
         createPipelines();
@@ -91,11 +91,27 @@ namespace MW {
         vertShaderStageInfo.module = vertShaderModule;
         vertShaderStageInfo.pName = "main";
 
+        auto camera = engineGlobalContext.renderSystem->getRenderCamera();
+        struct SpecializationData {
+            float znear;
+            float zfar;
+        } specializationData;
+        specializationData.znear = camera->getNearClip();
+        specializationData.zfar = camera->getFarClip();
+        std::array<VkSpecializationMapEntry, 2> specializationMapEntries = {
+                CreateSpecializationMapEntry(0, offsetof(SpecializationData, znear),
+                                             sizeof(SpecializationData::znear)),
+                CreateSpecializationMapEntry(1, offsetof(SpecializationData, zfar),
+                                             sizeof(SpecializationData::zfar))
+        };
+        auto specializationInfo = CreateSpecializationInfo(2, specializationMapEntries.data(),
+                                                           sizeof(specializationData), &specializationData);
         VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
         fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
         fragShaderStageInfo.module = fragShaderModule;
         fragShaderStageInfo.pName = "main";
+        fragShaderStageInfo.pSpecializationInfo = &specializationInfo;
 
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
@@ -179,7 +195,7 @@ namespace MW {
         pipelineInfo.pDynamicState = &dynamicState;
         pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
         pipelineInfo.layout = pipelines[0].layout;
-        pipelineInfo.renderPass = fatherFrameBuffer->renderPass;
+        pipelineInfo.renderPass = fatherFramebuffer->renderPass;
         pipelineInfo.subpass = main_camera_subpass_g_buffer_pass;
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -220,7 +236,7 @@ namespace MW {
         for (int i = 0; i < main_camera_g_buffer_type_count; ++i) {
             imageInfos[i].sampler = VK_NULL_HANDLE; //why NULL_HANDLE
             imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfos[i].imageView = fatherFrameBuffer->attachments[i].view;
+            imageInfos[i].imageView = fatherFramebuffer->attachments[i].view;
             descriptorWrites[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrites[i].dstSet = gBufferGlobalDescriptor.descriptorSet;
             descriptorWrites[i].dstBinding = i;

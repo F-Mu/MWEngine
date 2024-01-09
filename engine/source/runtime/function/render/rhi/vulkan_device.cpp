@@ -1,5 +1,6 @@
 #include "vulkan_device.h"
 #include "runtime/function/render/window_system.h"
+
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
@@ -683,6 +684,8 @@ namespace MW {
         buffer.bufferSize = size;
         buffer.usageFlags = usageFlags;
         buffer.memoryPropertyFlags = memoryPropertyFlags;
+
+        buffer.setupDescriptor();
     }
 
     void VulkanDevice::flushBuffer(VulkanBuffer &buffer, VkDeviceSize size, VkDeviceSize offset) {
@@ -749,9 +752,22 @@ namespace MW {
         endSingleTimeCommands(commandBuffer);
     }
 
+
+    void VulkanDevice::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height,
+                                         uint32_t layerCount, VkBufferImageCopy *region) {
+        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+        vkCmdCopyBufferToImage(
+                commandBuffer,
+                buffer,
+                image,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                1,
+                region);
+        endSingleTimeCommands(commandBuffer);
+    }
+
     void VulkanDevice::copyBufferToImage(
             VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount) {
-        VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
         VkBufferImageCopy region{};
         region.bufferOffset = 0;
@@ -765,15 +781,7 @@ namespace MW {
 
         region.imageOffset = {0, 0, 0};
         region.imageExtent = {width, height, 1};
-
-        vkCmdCopyBufferToImage(
-                commandBuffer,
-                buffer,
-                image,
-                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                1,
-                &region);
-        endSingleTimeCommands(commandBuffer);
+        copyBufferToImage(buffer, image, width, height, layerCount, &region);
     }
 
     void VulkanDevice::CreateImageWithInfo(
@@ -1640,5 +1648,42 @@ namespace MW {
 
     void VulkanDevice::MapMemory(VkDeviceMemory memory, void *mapped, VkDeviceSize size, VkDeviceSize offset) {
         VK_CHECK_RESULT(vkMapMemory(device, memory, offset, size, 0, &mapped));
+    }
+
+    VkSampler VulkanDevice::getOrCreateDefaultSampler(VkFilter filter) {
+        switch (filter) {
+            case VK_FILTER_NEAREST:
+                if (defaultNearestSampler == VK_NULL_HANDLE)
+                    createDefaultSampler(filter, &defaultNearestSampler);
+                return defaultNearestSampler;
+            case VK_FILTER_LINEAR:
+                if (defaultLinearSampler == VK_NULL_HANDLE)
+                    createDefaultSampler(filter, &defaultLinearSampler);
+                return defaultLinearSampler;
+            default:
+                return nullptr;
+        }
+    }
+
+    void VulkanDevice::createDefaultSampler(VkFilter filter, VkSampler *sampler) {
+        VkSamplerCreateInfo samplerInfo{};
+
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = filter;
+        samplerInfo.minFilter = filter;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.anisotropyEnable = VK_FALSE;
+        samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy; // close :1.0f
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = 8.0f; // todo: m_irradiance_texture_miplevels
+        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        CreateSampler(&samplerInfo, sampler);
     }
 }

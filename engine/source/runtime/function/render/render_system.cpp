@@ -29,18 +29,18 @@ namespace MW {
         SceneManagerInitInfo sceneInfo;
         sceneInfo.device = device;
         sceneManager->initialize(&sceneInfo);
+        renderCamera = std::make_shared<RenderCamera>();
+        renderCamera->initialize();
+        auto windowSize = info.window->getWindowSize();
+        renderCamera->rotationSpeed *= 0.25f;
+        renderCamera->setPerspective(45.0f, windowSize[0] * 1.0 / windowSize[1], 0.1f, 256.0f);
+        renderCamera->setPosition(glm::vec3(-0.12f, 1.14f, -2.25f));
+        renderCamera->setRotation(glm::vec3(-17.0f, 7.0f, 0.0f));
         RenderPassInitInfo passInfo;
         passInfo.device = device;
         passInfo.renderResource = renderResource;
         mainCameraPass = std::make_shared<MainCameraPass>();
         mainCameraPass->initialize(&passInfo);
-        renderCamera = std::make_shared<RenderCamera>();
-        renderCamera->initialize();
-        auto windowSize = info.window->getWindowSize();
-        renderCamera->rotationSpeed *= 0.25f;
-        renderCamera->setPerspective(45.0f, windowSize[0] * 1.0 / windowSize[1], 0.5f, 48.0f);
-        renderCamera->setPosition(glm::vec3(-0.12f, 1.14f, -2.25f));
-        renderCamera->setRotation(glm::vec3(-17.0f, 7.0f, 0.0f));
     }
 
     void RenderSystem::clean() {
