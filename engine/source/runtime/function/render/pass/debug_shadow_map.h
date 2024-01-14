@@ -1,8 +1,0 @@
-//
-// Created by 75443 on 2024/1/6.
-//
-
-#ifndef MWENGINE_DEBUG_SHADOW_MAP_H
-#define MWENGINE_DEBUG_SHADOW_MAP_H
-
-#endif //MWENGINE_DEBUG_SHADOW_MAP_H

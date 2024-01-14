@@ -4,10 +4,10 @@
 #include <iostream>
 #include "main_camera_pass.h"
 #include "function/render/render_resource.h"
-#include "cascade_shadow_map_pass.h"
+#include "runtime/function/render/pass/shadow_passes/cascade_shadow_map_pass.h"
 #include "g_buffer_pass.h"
-#include "deferred_csm_pass.h"
-#include "ssao_pass.h"
+#include "runtime/function/render/pass/shadow_passes/deferred_csm_pass.h"
+#include "runtime/function/render/pass/ao_passes/ssao_pass.h"
 #include "function/global/engine_global_context.h"
 #include "function/render/scene_manager.h"
 #include "shading_pass.h"
@@ -67,10 +67,9 @@ namespace MW {
 
         VkAttachmentDescription &depthAttachment = attachments[main_camera_depth];
         depthAttachment.format = device->getDepthImageInfo().depthImageFormat;
-
         depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -113,7 +112,9 @@ namespace MW {
         subpassDescs[main_camera_subpass_g_buffer_pass].colorAttachmentCount = gBufferAttachmentReferences.size();
         subpassDescs[main_camera_subpass_g_buffer_pass].pColorAttachments = gBufferAttachmentReferences.data();
         subpassDescs[main_camera_subpass_g_buffer_pass].pDepthStencilAttachment = &depthAttachmentReference;
-        std::array<VkAttachmentReference, 4> ScreenSpaceInputAttachmentReferences{};
+
+        // Create CSM SubPass;
+        std::array<VkAttachmentReference, 5> ScreenSpaceInputAttachmentReferences{};
         ScreenSpaceInputAttachmentReferences[g_buffer_position].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         ScreenSpaceInputAttachmentReferences[g_buffer_position].attachment = g_buffer_position;
         ScreenSpaceInputAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -122,8 +123,9 @@ namespace MW {
         ScreenSpaceInputAttachmentReferences[g_buffer_albedo].attachment = g_buffer_albedo;
         ScreenSpaceInputAttachmentReferences[g_buffer_view_position].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         ScreenSpaceInputAttachmentReferences[g_buffer_view_position].attachment = g_buffer_view_position;
+        ScreenSpaceInputAttachmentReferences[4].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        ScreenSpaceInputAttachmentReferences[4].attachment = main_camera_depth;
 
-        // Create CSM SubPass;
         std::array<VkAttachmentReference, 1> CSMOutputAttachmentReferences{};
         CSMOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         CSMOutputAttachmentReferences[0].attachment = main_camera_shadow;
@@ -133,7 +135,6 @@ namespace MW {
         subpassDescs[main_camera_subpass_csm_pass].pInputAttachments = ScreenSpaceInputAttachmentReferences.data();
         subpassDescs[main_camera_subpass_csm_pass].colorAttachmentCount = CSMOutputAttachmentReferences.size();
         subpassDescs[main_camera_subpass_csm_pass].pColorAttachments = CSMOutputAttachmentReferences.data();
-        subpassDescs[main_camera_subpass_csm_pass].pDepthStencilAttachment = &depthAttachmentReference;
 
         // Create SSAO SubPass;
         std::array<VkAttachmentReference, 2> SSAOInputAttachmentReferences{};
@@ -151,7 +152,6 @@ namespace MW {
         subpassDescs[main_camera_subpass_ssao_pass].pInputAttachments = SSAOInputAttachmentReferences.data();
         subpassDescs[main_camera_subpass_ssao_pass].colorAttachmentCount = SSAOOutputAttachmentReferences.size();
         subpassDescs[main_camera_subpass_ssao_pass].pColorAttachments = SSAOOutputAttachmentReferences.data();
-        subpassDescs[main_camera_subpass_ssao_pass].pDepthStencilAttachment = &depthAttachmentReference;
 
         // Create Shading SubPass;
         std::array<VkAttachmentReference, 2> ShadingInputAttachmentReferences{};
@@ -168,9 +168,8 @@ namespace MW {
         subpassDescs[main_camera_subpass_shading_pass].pInputAttachments = ShadingInputAttachmentReferences.data();
         subpassDescs[main_camera_subpass_shading_pass].colorAttachmentCount = ShadingOutputAttachmentReferences.size();
         subpassDescs[main_camera_subpass_shading_pass].pColorAttachments = ShadingOutputAttachmentReferences.data();
-        subpassDescs[main_camera_subpass_shading_pass].pDepthStencilAttachment = &depthAttachmentReference;
 
-        std::array<VkSubpassDependency, 6> dependencies = {};
+        std::array<VkSubpassDependency, 5> dependencies = {};
         dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
         dependencies[0].dstSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -182,11 +181,11 @@ namespace MW {
         dependencies[1].srcSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[1].dstSubpass = main_camera_subpass_csm_pass;
         dependencies[1].srcStageMask =
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         dependencies[1].dstStageMask =
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[1].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[1].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT|VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT|VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         dependencies[2].srcSubpass = main_camera_subpass_csm_pass;
@@ -219,15 +218,6 @@ namespace MW {
         dependencies[4].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[4].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-        dependencies[5].srcSubpass = main_camera_subpass_csm_pass;
-        dependencies[5].dstSubpass = main_camera_subpass_ssao_pass;
-        dependencies[5].srcStageMask =
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        dependencies[5].dstStageMask =
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        dependencies[5].srcAccessMask = VK_ACCESS_NONE_KHR;
-        dependencies[5].dstAccessMask = VK_ACCESS_NONE_KHR;
-        dependencies[5].dependencyFlags = 0;
         VkRenderPassCreateInfo renderPassInfo = {};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
         renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -250,127 +240,6 @@ namespace MW {
         device->MapMemory(cameraUniformBuffer);
 
         updateCamera();
-    }
-
-    void MainCameraPass::createPipelines() {
-        pipelines.resize(1);
-        auto vertShaderModule = device->CreateShaderModule(SCENE_VERT);
-        auto fragShaderModule = device->CreateShaderModule(SCENE_FRAG);
-
-        VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-        vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        vertShaderStageInfo.module = vertShaderModule;
-        vertShaderStageInfo.pName = "main";
-
-        VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-        fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        fragShaderStageInfo.module = fragShaderModule;
-        fragShaderStageInfo.pName = "main";
-
-        VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-        std::vector<VertexComponent> components{VertexComponent::Position, VertexComponent::Normal, VertexComponent::UV,
-                                                VertexComponent::Color, VertexComponent::Tangent};
-
-//        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-//        vertexInputInfo.vertexBindingDescriptionCount = 0;
-//        vertexInputInfo.vertexAttributeDescriptionCount = 0;
-
-        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-        VkPipelineViewportStateCreateInfo viewportState{};
-        viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        viewportState.viewportCount = 1;
-        viewportState.scissorCount = 1;
-
-        VkPipelineRasterizationStateCreateInfo rasterizer{};
-        rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        rasterizer.depthClampEnable = VK_FALSE;
-        rasterizer.rasterizerDiscardEnable = VK_FALSE;
-        rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-        rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-        rasterizer.depthBiasEnable = VK_FALSE;
-
-        VkPipelineMultisampleStateCreateInfo multisampling{};
-        multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        multisampling.sampleShadingEnable = VK_FALSE;
-        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-        VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-        colorBlendAttachment.colorWriteMask =
-                VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                VK_COLOR_COMPONENT_A_BIT;
-        colorBlendAttachment.blendEnable = VK_FALSE;
-
-        VkPipelineColorBlendStateCreateInfo colorBlending{};
-        colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlending.logicOpEnable = VK_FALSE;
-        colorBlending.logicOp = VK_LOGIC_OP_COPY;
-        colorBlending.attachmentCount = 1;
-        colorBlending.pAttachments = &colorBlendAttachment;
-        colorBlending.blendConstants[0] = 0.0f;
-        colorBlending.blendConstants[1] = 0.0f;
-        colorBlending.blendConstants[2] = 0.0f;
-        colorBlending.blendConstants[3] = 0.0f;
-
-        VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo{};
-        depthStencilCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        depthStencilCreateInfo.depthTestEnable = VK_TRUE;
-        depthStencilCreateInfo.depthWriteEnable = VK_TRUE;
-        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-        depthStencilCreateInfo.depthBoundsTestEnable = VK_FALSE;
-        depthStencilCreateInfo.stencilTestEnable = VK_FALSE;
-        depthStencilCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
-
-        std::vector<VkDynamicState> dynamicStates = {
-                VK_DYNAMIC_STATE_VIEWPORT,
-                VK_DYNAMIC_STATE_SCISSOR
-        };
-        VkPipelineDynamicStateCreateInfo dynamicState{};
-        dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-        dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-        dynamicState.pDynamicStates = dynamicStates.data();
-        VkPushConstantRange pushConstantRange = CreatePushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4),
-                                                                        0);
-
-        std::vector<VkDescriptorSetLayout> layouts{descriptors[0].layout, descriptorSetLayoutImage};
-        VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-        pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = layouts.size();
-        pipelineLayoutInfo.pSetLayouts = layouts.data();
-        pipelineLayoutInfo.pushConstantRangeCount = 1;
-        pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
-
-        device->CreatePipelineLayout(&pipelineLayoutInfo, &pipelines[0].layout);
-
-        VkGraphicsPipelineCreateInfo pipelineInfo{};
-        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipelineInfo.stageCount = 2;
-        pipelineInfo.pStages = shaderStages;
-        pipelineInfo.pVertexInputState = gltfVertex::getPipelineVertexInputState(components);
-        pipelineInfo.pInputAssemblyState = &inputAssembly;
-        pipelineInfo.pViewportState = &viewportState;
-        pipelineInfo.pRasterizationState = &rasterizer;
-        pipelineInfo.pMultisampleState = &multisampling;
-        pipelineInfo.pColorBlendState = &colorBlending;
-        pipelineInfo.pDynamicState = &dynamicState;
-        pipelineInfo.pDepthStencilState = &depthStencilCreateInfo;
-        pipelineInfo.layout = pipelines[0].layout;
-        pipelineInfo.renderPass = framebuffer.renderPass;
-        pipelineInfo.subpass = 0;
-        pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-
-        device->CreateGraphicsPipelines(&pipelineInfo, &pipelines[0].pipeline);
-
-        device->DestroyShaderModule(fragShaderModule);
-        device->DestroyShaderModule(vertShaderModule);
     }
 
     void MainCameraPass::createDescriptorSets() {
@@ -452,7 +321,7 @@ namespace MW {
         std::array<VkClearValue, main_camera_g_buffer_type_count + main_camera_custom_type_count + 2> clearColors{};
         for (int i = 0; i < main_camera_g_buffer_type_count + main_camera_custom_type_count; ++i)
             clearColors[i] = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        clearColors[main_camera_depth] = {1.0f, 0};
+        clearColors[main_camera_depth].depthStencil = {1.0f, 0};
         clearColors[main_camera_swap_chain_image] = {{0.0f, 0.0f, 0.2f, 1.0f}};
         renderPassInfo.clearValueCount = clearColors.size();
         renderPassInfo.pClearValues = clearColors.data();
@@ -508,6 +377,7 @@ namespace MW {
         createAttachments();
         createSwapchainFramebuffers();
         gBufferPass->updateAfterFramebufferRecreate();
+        shadowMapPass->updateAfterFramebufferRecreate();
     }
 
     void MainCameraPass::updateCamera() {
@@ -519,6 +389,7 @@ namespace MW {
         gBufferPass->preparePassData();
         shadowMapPass->preparePassData();
         ssaoPass->preparePassData();
+//        shadingPass->preparePassData();
     }
 
     void MainCameraPass::loadModel() {

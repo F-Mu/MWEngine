@@ -196,9 +196,9 @@ namespace MW {
 
         VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo{};
         depthStencilCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        depthStencilCreateInfo.depthTestEnable = VK_TRUE;
-        depthStencilCreateInfo.depthWriteEnable = VK_TRUE;
-        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        depthStencilCreateInfo.depthTestEnable = VK_FALSE;
+        depthStencilCreateInfo.depthWriteEnable = VK_FALSE;
+        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_ALWAYS;
         depthStencilCreateInfo.depthBoundsTestEnable = VK_FALSE;
         depthStencilCreateInfo.stencilTestEnable = VK_FALSE;
 

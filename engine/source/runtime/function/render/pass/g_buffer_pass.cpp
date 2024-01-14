@@ -138,7 +138,7 @@ namespace MW {
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
-        rasterizer.cullMode = VK_CULL_MODE_NONE; //important
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
         rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -169,7 +169,7 @@ namespace MW {
         depthStencilCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         depthStencilCreateInfo.depthTestEnable = VK_TRUE;
         depthStencilCreateInfo.depthWriteEnable = VK_TRUE;
-        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
         depthStencilCreateInfo.depthBoundsTestEnable = VK_FALSE;
         depthStencilCreateInfo.stencilTestEnable = VK_FALSE;
 
@@ -224,6 +224,7 @@ namespace MW {
                 CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
                 CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 2),
                 CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 3),
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 4),
         };
         VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
         descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -231,10 +232,10 @@ namespace MW {
         descriptorSetLayoutCreateInfo.bindingCount = binding.size();
         device->CreateDescriptorSetLayout(&descriptorSetLayoutCreateInfo, &gBufferGlobalDescriptor.layout);
         device->CreateDescriptorSet(1, gBufferGlobalDescriptor.layout, gBufferGlobalDescriptor.descriptorSet);
-        std::array<VkDescriptorImageInfo, main_camera_g_buffer_type_count> imageInfos{};
-        std::array<VkWriteDescriptorSet, main_camera_g_buffer_type_count> descriptorWrites{};
+        std::array<VkDescriptorImageInfo, main_camera_g_buffer_type_count + 1> imageInfos{};
+        std::array<VkWriteDescriptorSet, main_camera_g_buffer_type_count + 1> descriptorWrites{};
         for (int i = 0; i < main_camera_g_buffer_type_count; ++i) {
-            imageInfos[i].sampler = VK_NULL_HANDLE; //why NULL_HANDLE
+            imageInfos[i].sampler = device->getOrCreateDefaultSampler(VK_FILTER_NEAREST);
             imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             imageInfos[i].imageView = fatherFramebuffer->attachments[i].view;
             descriptorWrites[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -245,6 +246,17 @@ namespace MW {
             descriptorWrites[i].descriptorCount = 1;
             descriptorWrites[i].pImageInfo = &imageInfos[i];
         }
+        //depth
+        imageInfos[main_camera_g_buffer_type_count].sampler = device->getOrCreateDefaultSampler(VK_FILTER_NEAREST);
+        imageInfos[main_camera_g_buffer_type_count].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfos[main_camera_g_buffer_type_count].imageView = device->getDepthImageInfo().depthImageView;
+        descriptorWrites[main_camera_g_buffer_type_count].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[main_camera_g_buffer_type_count].dstSet = gBufferGlobalDescriptor.descriptorSet;
+        descriptorWrites[main_camera_g_buffer_type_count].dstBinding = main_camera_g_buffer_type_count;
+        descriptorWrites[main_camera_g_buffer_type_count].dstArrayElement = 0;
+        descriptorWrites[main_camera_g_buffer_type_count].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites[main_camera_g_buffer_type_count].descriptorCount = 1;
+        descriptorWrites[main_camera_g_buffer_type_count].pImageInfo = &imageInfos[main_camera_g_buffer_type_count];
         device->UpdateDescriptorSets(descriptorWrites.size(), descriptorWrites.data());
     }
 

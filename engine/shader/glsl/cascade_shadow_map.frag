@@ -22,9 +22,11 @@ layout (location = 0) out vec4 outFragColor;
 layout (set = 0, binding = 2) uniform UBO {
     vec4 cascadeSplits[SHADOW_MAP_CASCADE_COUNT/4];
     mat4 cascadeViewProjMat[SHADOW_MAP_CASCADE_COUNT];
-    mat4 inverseViewMat;
+    mat4 projViewMatrix;
     vec3 lightDir;
-    float _pad;
+    lowp float _padlightDir;
+    highp vec3 cameraPos;
+    lowp float _padcameraPos;
     int colorCascades;
 } ubo;
 

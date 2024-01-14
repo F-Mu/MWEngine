@@ -36,8 +36,6 @@ namespace MW {
 
         virtual void createRenderPass();
 
-        virtual void createPipelines();
-
         virtual void createDescriptorSets();
 
         virtual void createSwapchainFramebuffers();

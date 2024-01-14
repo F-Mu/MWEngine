@@ -2,6 +2,7 @@
 #include "function/render/render_model.h"
 #include "deferred_vert.h"
 #include "shading_frag.h"
+#include "function/render/render_resource.h"
 
 namespace MW {
     extern PassBase::Descriptor CSMGlobalDescriptor;
@@ -13,12 +14,15 @@ namespace MW {
         const auto *_info = static_cast<const ShadingPassInitInfo *>(info);
         fatherFrameBuffer = _info->frameBuffer;
 
+        createToneMappingUniformBuffer();
+        createToneMappingDescriptors();
         createPipelines();
     }
 
     void ShadingPass::createPipelines() {
         pipelines.resize(1);
-        std::vector<VkDescriptorSetLayout> layouts = {CSMGlobalDescriptor.layout, SSAOGlobalDescriptor.layout};
+        std::vector<VkDescriptorSetLayout> layouts = {CSMGlobalDescriptor.layout, SSAOGlobalDescriptor.layout,
+                                                      descriptors[0].layout};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = layouts.size();
@@ -93,9 +97,9 @@ namespace MW {
 
         VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo{};
         depthStencilCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        depthStencilCreateInfo.depthTestEnable = VK_TRUE;
-        depthStencilCreateInfo.depthWriteEnable = VK_TRUE;
-        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        depthStencilCreateInfo.depthTestEnable = VK_FALSE;
+        depthStencilCreateInfo.depthWriteEnable = VK_FALSE;
+        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_ALWAYS;
         depthStencilCreateInfo.depthBoundsTestEnable = VK_FALSE;
         depthStencilCreateInfo.stencilTestEnable = VK_FALSE;
 
@@ -133,12 +137,45 @@ namespace MW {
 
     void ShadingPass::draw() {
         auto commandBuffer = device->getCurrentCommandBuffer();
-        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
+
+        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                pipelines[0].layout,
                                 0, 1, &CSMGlobalDescriptor.descriptorSet, 0, nullptr);
-        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
+        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                pipelines[0].layout,
                                 1, 1, &SSAOGlobalDescriptor.descriptorSet, 0, nullptr);
+        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                pipelines[0].layout,
+                                2, 1, &descriptors[0].descriptorSet, 0, nullptr);
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+    }
+
+    void ShadingPass::createToneMappingUniformBuffer() {
+        device->CreateBuffer(
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                shadingParamsUBOBuffer,
+                sizeof(shadingParamsUBO), &shadingParamsUBO);
+        device->MapMemory(shadingParamsUBOBuffer);
+    }
+
+    void ShadingPass::createToneMappingDescriptors() {
+        descriptors.resize(1);
+        std::vector<VkDescriptorSetLayoutBinding> binding = {
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 0)};
+        VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
+        descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        descriptorSetLayoutCreateInfo.pBindings = binding.data();
+        descriptorSetLayoutCreateInfo.bindingCount = binding.size();
+        device->CreateDescriptorSetLayout(&descriptorSetLayoutCreateInfo, &descriptors[0].layout);
+        device->CreateDescriptorSet(1, descriptors[0].layout, descriptors[0].descriptorSet);
+
+        std::vector<VkWriteDescriptorSet> descriptorWrites = {
+                CreateWriteDescriptorSet(descriptors[0].descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0,
+                                         &shadingParamsUBOBuffer.descriptor),
+        };
+        device->UpdateDescriptorSets(descriptorWrites.size(), descriptorWrites.data());
     }
 }

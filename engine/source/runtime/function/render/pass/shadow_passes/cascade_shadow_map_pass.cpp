@@ -63,8 +63,9 @@ namespace MW {
             shadowMapFSUbo.cascadeSplits[i] = cascades[i].splitDepth;
             shadowMapFSUbo.cascadeProjViewMat[i] = cascades[i].lightProjViewMat;
         }
-        shadowMapFSUbo.inverseViewMat = glm::inverse(renderResource->cameraObject.viewMatrix);
+        shadowMapFSUbo.projViewMatrix = renderResource->cameraObject.projViewMatrix;
         shadowMapFSUbo.lightDir = normalize(-renderResource->cameraObject.lightPos);
+        shadowMapFSUbo.cameraPos = renderResource->cameraObject.position;
 //        shadowMapFSUbo.colorCascades = colorCascades;
         memcpy(shadowMapFSBuffer.mapped, &shadowMapFSUbo, sizeof(shadowMapFSUbo));
         depthPass->preparePassData();
@@ -274,9 +275,9 @@ namespace MW {
 
         VkPipelineDepthStencilStateCreateInfo depthStencilCreateInfo{};
         depthStencilCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        depthStencilCreateInfo.depthTestEnable = VK_TRUE;
-        depthStencilCreateInfo.depthWriteEnable = VK_TRUE;
-        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        depthStencilCreateInfo.depthTestEnable = VK_FALSE;
+        depthStencilCreateInfo.depthWriteEnable = VK_FALSE;
+        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_ALWAYS;
         depthStencilCreateInfo.depthBoundsTestEnable = VK_FALSE;
         depthStencilCreateInfo.stencilTestEnable = VK_FALSE;
 
@@ -431,6 +432,7 @@ namespace MW {
     void CascadeShadowMapPass::drawDepth() {
         depthPass->drawLayer();
     }
+
     void CascadeShadowMapPass::createCSMGlobalDescriptor() {
         std::vector<VkDescriptorSetLayoutBinding> binding = {
                 CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 0),

@@ -56,7 +56,7 @@ namespace MW {
     void RenderSystem::tick(float delta_time) {
         static float timer = 0;
         float frameTime = 1;
-        float timeSpeed = 0.01;
+        float timeSpeed = 0.00;
         timer += frameTime * timeSpeed * delta_time * 10;
         if (timer > 1)timer -= 1;
         float angle = glm::radians(timer * 360.0f);
@@ -69,8 +69,11 @@ namespace MW {
         renderResource->rtData.vertexSize = sizeof(gltfVertex);
         renderResource->cameraObject.projMatrix = renderCamera->matrices.perspective;
         renderResource->cameraObject.viewMatrix = renderCamera->matrices.view;
+        renderResource->cameraObject.projViewMatrix =
+                renderResource->cameraObject.projMatrix * renderResource->cameraObject.viewMatrix;
         renderResource->cameraObject.lightPos = lightPos;
         renderResource->cameraObject.viewPos = renderCamera->viewPos;
+        renderResource->cameraObject.position = renderCamera->position;
         mainCameraPass->preparePassData();
         device->prepareBeforePass(std::bind(&RenderSystem::passUpdateAfterRecreateSwapchain, this));
         mainCameraPass->draw();

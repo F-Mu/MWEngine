@@ -1,0 +1,8 @@
+//
+// Created by 75443 on 2024/1/14.
+//
+
+#ifndef MWENGINE_PBR_IBL_PASS_H
+#define MWENGINE_PBR_IBL_PASS_H
+
+#endif //MWENGINE_PBR_IBL_PASS_H

@@ -116,6 +116,7 @@ namespace MW {
         sampler.maxLod = 1.0f;
         sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
         device->CreateSampler(&sampler, &depth.sampler);
+        depth.setDescriptor();
     }
 
     void DepthPass::createUniformBuffer() {
@@ -245,14 +246,13 @@ namespace MW {
 
         VkPipelineRasterizationStateCreateInfo rasterizer{};
         rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        rasterizer.depthClampEnable = VK_FALSE;
+        rasterizer.depthClampEnable = device->enabledFeatures.depthClamp;
         rasterizer.rasterizerDiscardEnable = VK_FALSE;
         rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizer.lineWidth = 1.0f;
         rasterizer.cullMode = VK_CULL_MODE_NONE;
         rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
-        rasterizer.depthClampEnable = device->enabledFeatures.depthClamp;
 
         VkPipelineMultisampleStateCreateInfo multisampling{};
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -271,7 +271,7 @@ namespace MW {
         depthStencilCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         depthStencilCreateInfo.depthTestEnable = VK_TRUE;
         depthStencilCreateInfo.depthWriteEnable = VK_TRUE;
-        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+        depthStencilCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
         depthStencilCreateInfo.depthBoundsTestEnable = VK_FALSE;
         depthStencilCreateInfo.stencilTestEnable = VK_FALSE;
 

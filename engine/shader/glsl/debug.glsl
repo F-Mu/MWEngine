@@ -2,8 +2,8 @@
 void print(float x){
     debugPrintfEXT("float:%f\n", x);
 }
-void print(float x,float y){
-    debugPrintfEXT("float:%f;%f\n", x,y);
+void print(float x, float y){
+    debugPrintfEXT("float:%f;%f\n", x, y);
 }
 void print(vec3 vec){
     debugPrintfEXT("vec3:%f,%f,%f\n", vec.x, vec.y, vec.z);

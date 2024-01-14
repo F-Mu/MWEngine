@@ -1,6 +1,6 @@
 #pragma once
 
-#include "depth_pass.h"
+#include "runtime/function/render/pass/shadow_passes/depth_pass.h"
 #include "function/render/pass/pass_base.h"
 #include <array>
 

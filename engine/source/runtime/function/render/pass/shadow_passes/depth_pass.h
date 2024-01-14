@@ -1,10 +1,12 @@
 #pragma once
 
-#include "pass_base.h"
+#include "runtime/function/render/pass/pass_base.h"
+
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-#include <glm/glm.hpp>
+#include "glm/glm.hpp"
+
 namespace MW {
     struct DepthPassInitInfo : public RenderPassInitInfo {
         // Maybe More
@@ -24,6 +26,12 @@ namespace MW {
         VkDeviceMemory mem;
         VkImageView view;
         VkSampler sampler;
+        VkDescriptorImageInfo descriptor;
+        void setDescriptor() {
+            descriptor.sampler = sampler;
+            descriptor.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+            descriptor.imageView = view;
+        }
 
         void destroy(VkDevice device) {
             vkDestroyImageView(device, view, nullptr);

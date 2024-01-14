@@ -16,19 +16,21 @@ namespace MW {
     }
 
     void
-    SceneManager::loadModel(const std::string &filename, VulkanDevice *device, uint32_t fileLoadingFlags,
+    SceneManager::loadModel(const std::string &filename, uint32_t fileLoadingFlags,
                             glm::vec3 modelPos, float scale
     ) {
         models.emplace_back(std::make_shared<Model>());
-        models.back()->loadFromFile(filename, device, fileLoadingFlags, scale);
+        models.back()->loadFromFile(filename, device.get(), fileLoadingFlags, scale);
         modelPoss.emplace_back(modelPos);
     }
 
     void SceneManager::initialize(SceneManagerInitInfo *initInfo) {
         device = initInfo->device;
         uint32_t glTFLoadingFlags = FileLoadingFlags::PreTransformVertices | FileLoadingFlags::FlipY;
-        loadModel(getAssetPath() + "models/sponza/sponza.gltf", device.get(), glTFLoadingFlags);
-
+        loadModel(getAssetPath() + "models/sponza/sponza.gltf", glTFLoadingFlags);
+        skybox = std::make_shared<VulkanTextureCubeMap>();
+        skybox->loadFromFile(getAssetPath() + "textures/hdr/pisa_cube.ktx",
+                             VK_FORMAT_R16G16B16A16_SFLOAT, device);
 //        const std::vector<glm::vec3> positions = {
 //                glm::vec3(0.0f, 0.0f, 0.0f),
 //                glm::vec3(1.25f, 0.25f, 1.25f),

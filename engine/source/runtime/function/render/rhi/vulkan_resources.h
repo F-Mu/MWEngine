@@ -3,6 +3,8 @@
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <memory>
+#include <string>
+#include "ktx.h"
 
 namespace MW {
     class VulkanDevice;
@@ -16,6 +18,7 @@ namespace MW {
         VkDeviceSize bufferSize;
         VkBufferUsageFlags usageFlags;
         VkMemoryPropertyFlags memoryPropertyFlags;
+
         void setupDescriptor(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
     };
 
@@ -33,6 +36,8 @@ namespace MW {
         void updateDescriptor();
 
         void destroy(std::shared_ptr<VulkanDevice> device);
+
+        ktxResult loadKTXFile(std::string filename, ktxTexture **target);
     };
 
     struct VulkanTexture2D : public VulkanTexture {
@@ -44,6 +49,16 @@ namespace MW {
                 uint32_t texHeight,
                 std::shared_ptr<VulkanDevice> device,
                 VkFilter filter = VK_FILTER_LINEAR,
+                VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
+                VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    };
+
+    class VulkanTextureCubeMap : public VulkanTexture {
+    public:
+        void loadFromFile(
+                std::string filename,
+                VkFormat format,
+                std::shared_ptr<VulkanDevice> device,
                 VkImageUsageFlags imageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT,
                 VkImageLayout imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     };

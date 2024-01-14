@@ -1,6 +1,6 @@
 ## Simple Vulkan Renderer
 
-The architecture and many codes mimic the Piccolo engine, https://github.com/BoomingTech/Piccolo
+The architecture mimic the Piccolo engine, https://github.com/BoomingTech/Piccolo
 
 Part of the code is from my project VulkanThreadPool, https://github.com/F-Mu/VulkanThreadPool
 
@@ -14,7 +14,7 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + gltf model loading
 
-+ Deferred+CSM+PCF+SSAO(under repair)
++ Deferred+CSM+PCF+SSAO+ToneMapping
 
 **TODO:**
 
@@ -28,6 +28,10 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + More render passes after learning more graphics knowledge (continued)
 
-+ ~~Become a game engine,having editor mode and game mode~~
++ ~~Become a game engine,having editor mode and game mode(give up)~~
 
 + Clean up
+
++ PBR-IBL
+
++ Separate lighting,shadow,ao pass

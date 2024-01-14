@@ -21,7 +21,7 @@ namespace MW {
 
         void draw() override;
 
-        void createPipelines() override;
+        void createPipelines();
 
         void updateAfterFramebufferRecreate() override;
 

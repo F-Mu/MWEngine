@@ -22,9 +22,11 @@ namespace MW {
     struct UniformBufferObjectFS {
         float cascadeSplits[CASCADE_COUNT];
         glm::mat4 cascadeProjViewMat[CASCADE_COUNT];
-        glm::mat4 inverseViewMat;
+        glm::mat4 projViewMatrix;
         glm::vec3 lightDir;
-        float _pad;
+        float _padLightDir;
+        glm::vec3 cameraPos;
+        float _padCameraPos;
         int32_t colorCascades{0};
     };
 
@@ -44,6 +46,7 @@ namespace MW {
 
         void drawDepth();
 
+        void updateAfterFramebufferRecreate();
     protected:
         void setCascadeSplits();
 
@@ -51,11 +54,9 @@ namespace MW {
 
 //        void createRenderPass();
 
-        void createUniformBuffer();
-
         void createCSMGlobalDescriptor();
 
-        void updateAfterFramebufferRecreate();
+        virtual void createUniformBuffer();
 
         virtual void createDescriptorSets();
 
