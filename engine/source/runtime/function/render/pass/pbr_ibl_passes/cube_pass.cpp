@@ -5,9 +5,6 @@
 #include "cube_vert.h"
 
 namespace MW {
-
-    constexpr VkFormat cubeMapFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
-
     void CubePass::initialize(const RenderPassInitInfo *info) {
         PassBase::initialize(info);
 

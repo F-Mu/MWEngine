@@ -237,6 +237,12 @@ namespace MW {
         return pipelineDynamicStateCreateInfo;
     }
 
+    inline VkPipelineVertexInputStateCreateInfo CreatePipelineVertexInputStateCreateInfo() {
+        VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo{};
+        pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        return pipelineVertexInputStateCreateInfo;
+    }
+
     inline VkDescriptorSetLayoutCreateInfo CreateDescriptorSetLayoutCreateInfo(
             const VkDescriptorSetLayoutBinding *pBindings,
             uint32_t bindingCount) {

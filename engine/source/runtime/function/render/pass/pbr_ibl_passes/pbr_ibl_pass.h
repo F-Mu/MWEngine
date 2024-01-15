@@ -1,8 +1,25 @@
-//
-// Created by 75443 on 2024/1/14.
-//
+#pragma once
 
-#ifndef MWENGINE_PBR_IBL_PASS_H
-#define MWENGINE_PBR_IBL_PASS_H
+#include "runtime/function/render/pass/pass_base.h"
 
-#endif //MWENGINE_PBR_IBL_PASS_H
+namespace MW {
+    class CubePass;
+
+    class LutPass;
+
+    class PbrIblPass : public PassBase {
+    public:
+        void preparePassData() override;
+
+        void precompute();
+    protected:
+        void initialize(const RenderPassInitInfo *info) override;
+        void draw() override;
+        void createUniformBuffer();
+        void createDescriptorSets();
+        void createPipelines();
+        std::shared_ptr<CubePass>   prefilteredPass;
+        std::shared_ptr<CubePass>   irradiancePass;
+        std::shared_ptr<LutPass>    lutPass;
+    };
+}

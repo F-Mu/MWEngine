@@ -541,6 +541,14 @@ namespace MW {
                 return VkVertexInputAttributeDescription(
                         {location, binding, VK_FORMAT_R32G32B32A32_SFLOAT,
                          static_cast<uint32_t>(offsetof(gltfVertex, weight0))});
+            case VertexComponent::RoughnessFactor:
+                return VkVertexInputAttributeDescription(
+                        {location, binding, VK_FORMAT_R32_SFLOAT,
+                         static_cast<uint32_t>(offsetof(gltfVertex, roughnessFactor))});
+            case VertexComponent::MetallicFactor:
+                return VkVertexInputAttributeDescription(
+                        {location, binding, VK_FORMAT_R32_SFLOAT,
+                         static_cast<uint32_t>(offsetof(gltfVertex, metallicFactor))});
             default:
                 return VkVertexInputAttributeDescription({});
         }

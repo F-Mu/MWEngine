@@ -33,9 +33,8 @@ namespace MW {
     public:
         void initialize(const RenderPassInitInfo *info) override;
 
-    private:
         void draw() override;
-
+    private:
         void createRenderPass();
 
         void createDescriptorSets();
@@ -48,6 +47,7 @@ namespace MW {
 
         void loadCube();
 
+        static constexpr VkFormat cubeMapFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
         CubePushBlockBuffer pushBlockBuffer;
         bool useEnvironmentCube{true};
         std::vector<unsigned char> *fragShader{nullptr};
