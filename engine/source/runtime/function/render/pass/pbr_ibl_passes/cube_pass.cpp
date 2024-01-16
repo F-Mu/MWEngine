@@ -15,6 +15,7 @@ namespace MW {
         fragShader = _info->fragShader;
         imageDim = _info->imageDim;
         numMips = static_cast<uint32_t>(floor(log2(imageDim))) + 1;
+        type = _info->type;
         loadCube();
         createCubeMap();
         createRenderPass();
@@ -79,6 +80,7 @@ namespace MW {
                 subresourceRange);
 
         for (uint32_t m = 0; m < numMips; m++) {
+            updatePushBlock(m);
             for (uint32_t f = 0; f < 6; f++) {
                 viewport.width = static_cast<float>(imageDim * std::pow(0.5f, m));
                 viewport.height = static_cast<float>(imageDim * std::pow(0.5f, m));
@@ -100,7 +102,7 @@ namespace MW {
                                         &descriptors[0].descriptorSet,
                                         0, NULL);
 
-                skybox.draw(cmdBuf);
+                cube.draw(cmdBuf);
 
                 vkCmdEndRenderPass(cmdBuf);
 
@@ -363,6 +365,18 @@ namespace MW {
 
     void CubePass::loadCube() {
         uint32_t glTFLoadingFlags = FileLoadingFlags::PreTransformVertices | FileLoadingFlags::FlipY;
-        skybox.loadFromFile(getAssetPath() + "models/cube.gltf", device.get(), glTFLoadingFlags);
+        cube.loadFromFile(getAssetPath() + "models/cube.gltf", device.get(), glTFLoadingFlags);
+    }
+
+    void CubePass::updatePushBlock(uint32_t mip) {
+        switch (type) {
+            case prefilter_cube_pass: {
+                auto *block = static_cast<prefilterPushBlock *>(pushBlockBuffer.pushBlock.data);
+                block->roughness = (float) mip / (float) (numMips - 1);
+                break;
+            }
+            default:
+                break;
+        }
     }
 }

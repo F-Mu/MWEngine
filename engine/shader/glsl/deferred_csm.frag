@@ -15,7 +15,7 @@ layout (set = 0, binding = 2) uniform UBO {
     int colorCascades;
 } ubo;
 layout (set = 0, binding = 3) uniform samplerCube skyboxSampler;
-layout (input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput inputPosition;
+layout (input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput inputMetarial;
 layout (input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput inputNormal;
 layout (input_attachment_index = 2, set = 1, binding = 2) uniform subpassInput inputAlbedo;
 layout (input_attachment_index = 3, set = 1, binding = 3) uniform subpassInput inputViewPos;
@@ -72,7 +72,7 @@ float filterPCF(vec4 sc, uint cascadeIndex)
 void main()
 {
     highp vec3 inPos;
-    highp float depth                    = subpassLoad(inputDepth).r;
+    highp float depth                        = subpassLoad(inputDepth).r;
     {
         highp vec4  ndc                      = vec4(uv_to_ndcxy(inUV), depth, 1.0);
         highp mat4  inverseProjViewMatrix    = inverse(ubo.projViewMatrix);

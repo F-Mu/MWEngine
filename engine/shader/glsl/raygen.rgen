@@ -90,4 +90,5 @@ void main()
     extraColor/=SPP;
     color = mix(color,extraColor,0.3);
 	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(color, 0.0));
+    debugPrintfEXT("rgvec3:%f,%f,%f\n", color.x, color.y, color.z);
 }

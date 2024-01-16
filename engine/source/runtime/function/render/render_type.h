@@ -8,14 +8,15 @@
 #include <string>
 
 namespace MW {
-    // TODO:给proj_view_matrix
+    constexpr uint16_t maxLightsCount = 4;
     struct CameraObject {
         glm::mat4 projMatrix;
         glm::mat4 viewMatrix;
-        glm::vec4 lightPos = glm::vec4(0.0f, 2.5f, 0.0f, 1.0f);
+//        glm::vec4 lightPos = glm::vec4(0.0f, 2.5f, 0.0f, 1.0f);
         glm::vec4 viewPos;
         glm::mat4 projViewMatrix;
         glm::vec3 position;
+        glm::vec4 lights[maxLightsCount];
     };
     struct CameraRTData {
         glm::mat4 viewInverse;

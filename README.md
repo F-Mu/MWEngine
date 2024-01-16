@@ -35,3 +35,5 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 + PBR-IBL
 
 + Separate lighting,shadow,ao pass
+
++ Use global resources

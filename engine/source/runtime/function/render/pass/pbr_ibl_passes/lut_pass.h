@@ -14,6 +14,7 @@ namespace MW {
     public:
         void initialize(const RenderPassInitInfo *info) override;
         void draw() override;
+        VulkanTexture2D lutTexture;
     private:
         void createRenderPass();
 
@@ -25,7 +26,6 @@ namespace MW {
 
         static constexpr VkFormat lutFormat = VK_FORMAT_R16G16_SFLOAT;
         bool executed{false};
-        VulkanTexture2D lutTexture;
         int32_t imageDim{512};
     };
 }

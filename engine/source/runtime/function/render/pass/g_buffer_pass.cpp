@@ -116,7 +116,7 @@ namespace MW {
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
         std::vector<VertexComponent> components{VertexComponent::Position, VertexComponent::UV, VertexComponent::Color,
-                                                VertexComponent::Normal, VertexComponent::Tangent};
+                                                VertexComponent::Normal, VertexComponent::Tangent,VertexComponent::MetallicFactor,VertexComponent::RoughnessFactor};
 
 //        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 //        vertexInputInfo.vertexBindingDescriptionCount = 0;

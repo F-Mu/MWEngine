@@ -11,8 +11,10 @@ layout (location = 2) in vec3 inColor;
 layout (location = 3) in vec3 inWorldPos;
 layout (location = 4) in vec3 inTangent;
 layout (location = 5) in vec3 inViewPos;
+layout (location = 6) in flat float inMetallic;
+layout (location = 7) in flat float inRoughness;
 
-layout (location = 0) out vec4 outPosition;
+layout (location = 0) out vec4 outMetarial;
 layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec4 outAlbedo;
 layout (location = 3) out vec4 outViewPosition;
@@ -25,7 +27,7 @@ float linearDepth(float depth)
 }
 void main()
 {
-    outPosition = vec4(inWorldPos, 1);
+    outMetarial = vec4(inMetallic, inRoughness, 1, 1);
     outViewPosition = vec4(inViewPos, linearDepth(gl_FragCoord.z));
 
     // Calculate normal in tangent space
@@ -36,6 +38,7 @@ void main()
     vec3 tnorm = TBN * normalize(texture(samplerNormalMap, inUV).xyz * 2.0 - vec3(1.0));
     //    outNormal = vec4(tnorm, 1.0);
     outNormal = vec4(N, 1.0);
+    //    outNormal = vec4(normalize(inNormal) * 0.5 + 0.5, 1.0);
     outAlbedo = texture(samplerColor, inUV);
     if (outAlbedo.a<0.5)discard;
 }

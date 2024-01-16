@@ -7,6 +7,8 @@ layout (location = 1) in vec2 inUV;
 layout (location = 2) in vec3 inColor;
 layout (location = 3) in vec3 inNormal;
 layout (location = 4) in vec3 inTangent;
+layout (location = 5) in float inMetallic;
+layout (location = 6) in float inRoughness;
 
 layout (binding = 0) uniform UBO
 {
@@ -24,6 +26,8 @@ layout (location = 2) out vec3 outColor;
 layout (location = 3) out vec3 outWorldPos;
 layout (location = 4) out vec3 outTangent;
 layout (location = 5) out vec3 outViewPos;
+layout (location = 6) out float outMetallic;
+layout (location = 7) out float outRoughness;
 
 void main()
 {
@@ -46,5 +50,7 @@ void main()
     outNormal = normalMatrix * inNormal;
 //    outNormal = inNormal;
     outTangent = inTangent;
+    outMetallic = inMetallic;
+    outRoughness = inRoughness;
     // Currently just vertex color
 }

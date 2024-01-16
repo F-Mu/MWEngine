@@ -11,6 +11,14 @@
 namespace MW {
     class VulkanTextureCubeMap;
 
+    struct prefilterPushBlock {
+        float roughness;
+        uint32_t numSamples = 32u;
+    };
+    struct irradiancePushBlock {
+        float deltaPhi = 2.0f * float(M_PI) / 180.0f;
+        float deltaTheta = 0.5f * float(M_PI) / 64.0f;
+    };
     struct CubePushBlockBuffer {
         struct CubePushBlock {
             glm::mat4 mvp{};
@@ -18,12 +26,16 @@ namespace MW {
         } pushBlock;
         uint32_t size{0};
     };
-
+    enum CubePassType {
+        prefilter_cube_pass,
+        irradiance_cube_pass
+    };
     struct CubePassInitInfo : public RenderPassInitInfo {
-        std::vector<unsigned char> *fragShader{nullptr};
+        const std::vector<unsigned char> *fragShader{nullptr};
         bool useEnvironmentCube{true};
         CubePushBlockBuffer pushBlock;
         int32_t imageDim{64};
+        CubePassType type;
 
         explicit CubePassInitInfo(const RenderPassInitInfo *info) : RenderPassInitInfo(*info) {};
     };
@@ -34,7 +46,11 @@ namespace MW {
         void initialize(const RenderPassInitInfo *info) override;
 
         void draw() override;
+        VulkanTextureCubeMap cubeMap;
+
     private:
+        void updatePushBlock(uint32_t mip);
+
         void createRenderPass();
 
         void createDescriptorSets();
@@ -50,11 +66,11 @@ namespace MW {
         static constexpr VkFormat cubeMapFormat = VK_FORMAT_R32G32B32A32_SFLOAT;
         CubePushBlockBuffer pushBlockBuffer;
         bool useEnvironmentCube{true};
-        std::vector<unsigned char> *fragShader{nullptr};
+        const std::vector<unsigned char> *fragShader{nullptr};
         int32_t imageDim{64};
-        VulkanTextureCubeMap cubeMap;
         bool executed{false};
-        float numMips;
-        Model skybox;
+        uint32_t numMips;
+        Model cube;
+        CubePassType type;
     };
 }
