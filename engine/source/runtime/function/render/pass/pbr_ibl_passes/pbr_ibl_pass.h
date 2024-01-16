@@ -20,13 +20,15 @@ namespace MW {
     class PbrIblPass : public PassBase {
     public:
         void preparePassData() override;
-    protected:
-        void precompute(const RenderPassInitInfo *info);
         void initialize(const RenderPassInitInfo *info) override;
         void draw() override;
+        void updateAfterFramebufferRecreate();
+    protected:
+        void precompute(const RenderPassInitInfo *info);
         void createUniformBuffer();
         void createDescriptorSets();
         void createPipelines();
+        void createLightingGlobalDescriptor();
         std::shared_ptr<CubePass>   prefilteredPass;
         std::shared_ptr<CubePass>   irradiancePass;
         std::shared_ptr<LutPass>    lutPass;

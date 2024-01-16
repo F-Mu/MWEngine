@@ -5,3 +5,7 @@ void fragPrint(vec3 vec){
     if (gl_FragCoord.x<1&&gl_FragCoord.y<1)
     print(vec);
 }
+void fragPrint(float x, float y){
+    if (gl_FragCoord.x<1&&gl_FragCoord.y<1)
+    print(x,y);
+}

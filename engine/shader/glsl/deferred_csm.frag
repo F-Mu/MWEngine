@@ -1,7 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : enable
 #include "debugFrag.glsl"
-#include "mesh_lighting.h"
+#include "mesh_lighting.glsl"
 #define SHADOW_MAP_CASCADE_COUNT 8
 layout (set = 0, binding = 1) uniform sampler2DArray shadowMap;
 layout (set = 0, binding = 2) uniform UBO {

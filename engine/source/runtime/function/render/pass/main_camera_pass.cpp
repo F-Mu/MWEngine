@@ -3,14 +3,14 @@
 #include <array>
 #include <iostream>
 #include "main_camera_pass.h"
-#include "function/render/render_resource.h"
-#include "runtime/function/render/pass/shadow_passes/cascade_shadow_map_pass.h"
 #include "g_buffer_pass.h"
-#include "runtime/function/render/pass/shadow_passes/deferred_csm_pass.h"
-#include "runtime/function/render/pass/ao_passes/ssao_pass.h"
+#include "function/render/render_resource.h"
+#include "shadow_passes/cascade_shadow_map_pass.h"
+#include "shadow_passes/deferred_csm_pass.h"
+#include "ao_passes/ssao_pass.h"
+#include "pbr_ibl_passes/pbr_ibl_pass.h"
 #include "function/global/engine_global_context.h"
 #include "function/render/scene_manager.h"
-#include "pbr_ibl_passes/pbr_ibl_pass.h"
 #include "shading_pass.h"
 #include "scene_frag.h"
 #include "scene_vert.h"
@@ -41,6 +41,11 @@ namespace MW {
         SSAOPassInitInfo ssaoInfo(init_info);
         ssaoInfo.frameBuffer = &framebuffer;
         ssaoPass->initialize(&ssaoInfo);
+
+        lightingPass = std::make_shared<PbrIblPass>();
+        PbrIblPassInitInfo pbrIblInfo(init_info);
+        pbrIblInfo.frameBuffer = &framebuffer;
+        lightingPass->initialize(&pbrIblInfo);
 
         shadingPass = std::make_shared<ShadingPass>();
         ShadingPassInitInfo shadingInfo(init_info);
@@ -159,16 +164,21 @@ namespace MW {
         {
             // Create Lighting SubPass;
             // TODO:FIX
-            std::array<VkAttachmentReference, 3> LightingInputAttachmentReferences{};
+            std::array<VkAttachmentReference, 5> LightingInputAttachmentReferences{};
             LightingInputAttachmentReferences[g_buffer_position].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             LightingInputAttachmentReferences[g_buffer_position].attachment = g_buffer_position;
             LightingInputAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             LightingInputAttachmentReferences[g_buffer_normal].attachment = g_buffer_normal;
-            LightingInputAttachmentReferences[2].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            LightingInputAttachmentReferences[2].attachment = main_camera_depth;
+            LightingInputAttachmentReferences[g_buffer_albedo].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            LightingInputAttachmentReferences[g_buffer_albedo].attachment = g_buffer_albedo;
+            LightingInputAttachmentReferences[g_buffer_view_position].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            LightingInputAttachmentReferences[g_buffer_view_position].attachment = g_buffer_view_position;
+            LightingInputAttachmentReferences[4].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            LightingInputAttachmentReferences[4].attachment = main_camera_depth;
+
             std::array<VkAttachmentReference, 1> LightingOutputAttachmentReferences{};
             LightingOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            LightingOutputAttachmentReferences[0].attachment = main_camera_ao;
+            LightingOutputAttachmentReferences[0].attachment = main_camera_lighting;
 
             subpassDescs[main_camera_subpass_lighting_pass].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
             subpassDescs[main_camera_subpass_lighting_pass].inputAttachmentCount = LightingInputAttachmentReferences.size();
@@ -178,11 +188,13 @@ namespace MW {
         }
         {
             // Create Shading SubPass;
-            std::array<VkAttachmentReference, 2> ShadingInputAttachmentReferences{};
+            std::array<VkAttachmentReference, 3> ShadingInputAttachmentReferences{};
             ShadingInputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             ShadingInputAttachmentReferences[0].attachment = main_camera_shadow;
             ShadingInputAttachmentReferences[1].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             ShadingInputAttachmentReferences[1].attachment = main_camera_ao;
+            ShadingInputAttachmentReferences[2].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            ShadingInputAttachmentReferences[2].attachment = main_camera_lighting;
 
             std::array<VkAttachmentReference, 1> ShadingOutputAttachmentReferences{};
             ShadingOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -225,11 +237,11 @@ namespace MW {
         dependencies[3].srcSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[3].dstSubpass = main_camera_subpass_ssao_pass;
         dependencies[3].srcStageMask =
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         dependencies[3].dstStageMask =
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dependencies[3].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[3].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[3].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[3].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[3].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         dependencies[4].srcSubpass = main_camera_subpass_ssao_pass;
@@ -245,11 +257,11 @@ namespace MW {
         dependencies[5].srcSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[5].dstSubpass = main_camera_subpass_lighting_pass;
         dependencies[5].srcStageMask =
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         dependencies[5].dstStageMask =
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        dependencies[5].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[5].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[5].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[5].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[5].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         dependencies[6].srcSubpass = main_camera_subpass_lighting_pass;
@@ -262,6 +274,13 @@ namespace MW {
         dependencies[6].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[6].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
+//        dependencies[7].srcSubpass = main_camera_subpass_ssao_pass;
+//        dependencies[7].dstSubpass = main_camera_subpass_lighting_pass;
+//        dependencies[7].srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+//        dependencies[7].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+//        dependencies[7].srcAccessMask = VK_ACCESS_NONE_KHR;
+//        dependencies[7].dstAccessMask = VK_ACCESS_NONE_KHR;
+//        dependencies[7].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
         VkRenderPassCreateInfo renderPassInfo = {};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
         renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -394,6 +413,10 @@ namespace MW {
         ssaoPass->draw();
         vkCmdNextSubpass(device->getCurrentCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
 
+        lightingPass->draw();
+
+        vkCmdNextSubpass(device->getCurrentCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
+
         shadingPass->draw();
         // Bind scene matrices descriptor to set 0
 //        vkCmdBindPipeline(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
@@ -423,6 +446,8 @@ namespace MW {
         createSwapchainFramebuffers();
         gBufferPass->updateAfterFramebufferRecreate();
         shadowMapPass->updateAfterFramebufferRecreate();
+        ssaoPass->updateAfterFramebufferRecreate();
+        lightingPass->updateAfterFramebufferRecreate();
     }
 
     void MainCameraPass::updateCamera() {
@@ -430,12 +455,12 @@ namespace MW {
     }
 
     void MainCameraPass::preparePassData() {
-        updateCamera();
+//        updateCamera();
         gBufferPass->preparePassData();
         shadowMapPass->preparePassData();
         ssaoPass->preparePassData();
         lightingPass->preparePassData();
-//        shadingPass->preparePassData();
+        shadingPass->preparePassData();
     }
 
     void MainCameraPass::loadModel() {

@@ -7,6 +7,7 @@
 namespace MW {
     extern PassBase::Descriptor CSMGlobalDescriptor;
     extern PassBase::Descriptor SSAOGlobalDescriptor;
+    extern PassBase::Descriptor LightingGlobalDescriptor;
 
     void ShadingPass::initialize(const RenderPassInitInfo *info) {
         PassBase::initialize(info);
@@ -22,7 +23,7 @@ namespace MW {
     void ShadingPass::createPipelines() {
         pipelines.resize(1);
         std::vector<VkDescriptorSetLayout> layouts = {CSMGlobalDescriptor.layout, SSAOGlobalDescriptor.layout,
-                                                      descriptors[0].layout};
+                                                      LightingGlobalDescriptor.layout,descriptors[0].layout};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = layouts.size();
@@ -146,7 +147,10 @@ namespace MW {
                                 1, 1, &SSAOGlobalDescriptor.descriptorSet, 0, nullptr);
         vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 pipelines[0].layout,
-                                2, 1, &descriptors[0].descriptorSet, 0, nullptr);
+                                2, 1, &LightingGlobalDescriptor.descriptorSet, 0, nullptr);
+        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                pipelines[0].layout,
+                                3, 1, &descriptors[0].descriptorSet, 0, nullptr);
 
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);

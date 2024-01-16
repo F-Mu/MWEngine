@@ -58,6 +58,7 @@ namespace MW {
                 glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)),
         };
 
+        void *pushData = operator new(pushBlockBuffer.size);
         VkCommandBuffer cmdBuf = device->beginSingleTimeCommands();
         VkViewport viewport = CreateViewport((float) imageDim, (float) imageDim, 0.0f, 1.0f);
         VkRect2D scissor = CreateRect2D(imageDim, imageDim, 0, 0);
@@ -93,9 +94,12 @@ namespace MW {
                 pushBlockBuffer.pushBlock.mvp =
                         glm::perspective((float) (M_PI / 2.0), 1.0f, 0.1f, 512.0f) * matrices[f];
 
+                memcpy(pushData, &pushBlockBuffer.pushBlock.mvp, sizeof(pushBlockBuffer.pushBlock.mvp));
+                memcpy((char*)pushData + sizeof(pushBlockBuffer.pushBlock.mvp), pushBlockBuffer.pushBlock.data,
+                       pushBlockBuffer.size - sizeof(pushBlockBuffer.pushBlock.mvp));
                 vkCmdPushConstants(cmdBuf, pipelines[0].layout,
                                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                                   pushBlockBuffer.size, &pushBlockBuffer.pushBlock);
+                                   pushBlockBuffer.size, pushData);
 
                 vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
                 vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout, 0, 1,
@@ -157,6 +161,7 @@ namespace MW {
                 subresourceRange);
 
         device->endSingleTimeCommands(cmdBuf);
+        operator delete(pushData);
     }
 
     void CubePass::createRenderPass() {
@@ -373,6 +378,9 @@ namespace MW {
             case prefilter_cube_pass: {
                 auto *block = static_cast<prefilterPushBlock *>(pushBlockBuffer.pushBlock.data);
                 block->roughness = (float) mip / (float) (numMips - 1);
+                break;
+            }
+            case irradiance_cube_pass: {
                 break;
             }
             default:

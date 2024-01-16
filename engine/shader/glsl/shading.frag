@@ -3,11 +3,12 @@
 #include "debug.glsl"
 
 layout (input_attachment_index = 0, set = 0, binding = 0) uniform subpassInput inputShadow;
-layout (input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput inputAO;
+layout (input_attachment_index = 1, set = 1, binding = 0) uniform subpassInput inputAO;
+layout (input_attachment_index = 2, set = 2, binding = 0) uniform subpassInput inputLighting;
 layout (location = 0) in vec2 inUV;
 
 layout (location = 0) out vec4 outFragColor;
-layout (set = 2, binding = 0)uniform UBOParams {
+layout (set = 3, binding = 0)uniform UBOParams {
     float exposure;
     float gamma;
 } uboParams;
@@ -27,7 +28,8 @@ void main()
 {
     vec3 shadow = subpassLoad(inputShadow).rgb;
     float ao = subpassLoad(inputAO).r;
-    vec3 color = shadow * ao;
+    vec3 lighting = subpassLoad(inputLighting).rgb;
+    vec3 color = lighting;
 
     // Tone mapping
     color = Uncharted2Tonemap(color * uboParams.exposure);

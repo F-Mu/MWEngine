@@ -39,6 +39,7 @@ void main()
     //    outNormal = vec4(tnorm, 1.0);
     outNormal = vec4(N, 1.0);
     //    outNormal = vec4(normalize(inNormal) * 0.5 + 0.5, 1.0);
-    outAlbedo = texture(samplerColor, inUV);
+//    outAlbedo = texture(samplerColor, inUV);
+    outAlbedo =vec4(1.0f, 0.765557f, 0.336057f,1);
     if (outAlbedo.a<0.5)discard;
 }

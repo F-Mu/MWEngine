@@ -270,4 +270,9 @@ namespace MW {
         device->UpdateDescriptorSets(1, &descriptorWrites);
     }
 
+    void SSAOPass::updateAfterFramebufferRecreate() {
+        createDescriptorSets();
+        createSSAOGlobalDescriptor();
+    }
+
 }

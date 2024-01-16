@@ -61,7 +61,7 @@ namespace MW {
         if (timer > 1)timer -= 1;
         float angle = glm::radians(timer * 360.0f);
         float radius = 20.0f;
-        glm::vec4 lightPos = glm::vec4(cos(angle) * radius, -radius, sin(angle) * radius, 0.0f);
+        glm::vec4 lightPos = glm::vec4(cos(angle) * radius + 1, -radius, sin(angle) * radius, 0.0f);
         renderCamera->update(delta_time);
         renderResource->rtData.projInverse = glm::inverse(renderCamera->matrices.perspective);
         renderResource->rtData.viewInverse = glm::inverse(renderCamera->matrices.view);
@@ -71,9 +71,14 @@ namespace MW {
         renderResource->cameraObject.viewMatrix = renderCamera->matrices.view;
         renderResource->cameraObject.projViewMatrix =
                 renderResource->cameraObject.projMatrix * renderResource->cameraObject.viewMatrix;
-        renderResource->cameraObject.lightPos = lightPos;
+        renderResource->cameraObject.directionalLightPos = lightPos;
         renderResource->cameraObject.viewPos = renderCamera->viewPos;
         renderResource->cameraObject.position = renderCamera->position;
+        const float p = 15.0f;
+        renderResource->cameraObject.lights[0] = glm::vec4(-p, -p * 0.5f, -p, 1.0f);
+        renderResource->cameraObject.lights[1] = glm::vec4(-p, -p * 0.5f, p, 1.0f);
+        renderResource->cameraObject.lights[2] = glm::vec4(p, -p * 0.5f, p, 1.0f);
+        renderResource->cameraObject.lights[3] = glm::vec4(p, -p * 0.5f, -p, 1.0f);
         mainCameraPass->preparePassData();
         device->prepareBeforePass(std::bind(&RenderSystem::passUpdateAfterRecreateSwapchain, this));
         mainCameraPass->draw();

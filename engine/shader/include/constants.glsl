@@ -1,1 +1,1 @@
-#define maxLightsCount 15
+#define maxLightsCount 4

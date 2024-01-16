@@ -9,6 +9,7 @@
 
 namespace MW {
     extern PassBase::Descriptor gBufferGlobalDescriptor;
+    PassBase::Descriptor LightingGlobalDescriptor;
 
     void PbrIblPass::initialize(const RenderPassInitInfo *info) {
         PassBase::initialize(info);
@@ -18,6 +19,7 @@ namespace MW {
         createUniformBuffer();
         createDescriptorSets();
         createPipelines();
+        createLightingGlobalDescriptor();
     }
 
     void PbrIblPass::preparePassData() {
@@ -35,7 +37,11 @@ namespace MW {
         LutPassInitInfo lutInfo(info);
         prefilteredInfo.fragShader = &PREFILTER_ENV_MAP_FRAG;
         prefilteredInfo.type = prefilter_cube_pass;
+        prefilteredInfo.pushBlock.pushBlock.data = new prefilterPushBlock();
+        prefilteredInfo.pushBlock.size += sizeof(prefilterPushBlock);
         irradianceInfo.fragShader = &IRRADIANCE_CUBE_FRAG;
+        irradianceInfo.pushBlock.pushBlock.data = new irradiancePushBlock();
+        irradianceInfo.pushBlock.size += sizeof(irradiancePushBlock);
         irradianceInfo.type = irradiance_cube_pass;
         prefilteredPass->initialize(&prefilteredInfo);
         irradiancePass->initialize(&irradianceInfo);
@@ -43,6 +49,8 @@ namespace MW {
         prefilteredPass->draw();
         irradiancePass->draw();
         lutPass->draw();
+        delete static_cast<prefilterPushBlock *>(prefilteredInfo.pushBlock.pushBlock.data);
+        delete static_cast<irradiancePushBlock *>(irradianceInfo.pushBlock.pushBlock.data);
     }
 
     void PbrIblPass::draw() {
@@ -209,5 +217,37 @@ namespace MW {
 
         device->DestroyShaderModule(fragShaderModule);
         device->DestroyShaderModule(vertShaderModule);
+    }
+
+    void PbrIblPass::createLightingGlobalDescriptor() {
+        std::vector<VkDescriptorSetLayoutBinding> binding = {
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 0),
+        };
+        VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
+        descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        descriptorSetLayoutCreateInfo.pBindings = binding.data();
+        descriptorSetLayoutCreateInfo.bindingCount = binding.size();
+        device->CreateDescriptorSetLayout(&descriptorSetLayoutCreateInfo, &LightingGlobalDescriptor.layout);
+        device->CreateDescriptorSet(1, LightingGlobalDescriptor.layout, LightingGlobalDescriptor.descriptorSet);
+        VkDescriptorImageInfo imageInfos{};
+        imageInfos.sampler = VK_NULL_HANDLE; //why NULL_HANDLE
+        imageInfos.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfos.imageView = fatherFramebuffer->attachments[main_camera_lighting].view;
+        VkWriteDescriptorSet descriptorWrites{};
+
+        descriptorWrites.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites.dstSet = LightingGlobalDescriptor.descriptorSet;
+        descriptorWrites.dstBinding = 0;
+        descriptorWrites.dstArrayElement = 0;
+        descriptorWrites.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        descriptorWrites.descriptorCount = 1;
+        descriptorWrites.pImageInfo = &imageInfos;
+
+        device->UpdateDescriptorSets(1, &descriptorWrites);
+    }
+
+    void PbrIblPass::updateAfterFramebufferRecreate() {
+        createDescriptorSets();
+        createLightingGlobalDescriptor();
     }
 }

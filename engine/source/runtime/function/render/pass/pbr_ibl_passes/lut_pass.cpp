@@ -180,6 +180,7 @@ namespace MW {
         samplerCI.maxLod = 1.0f;
         samplerCI.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
         device->CreateSampler(&samplerCI, &lutTexture.sampler);
+        lutTexture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         lutTexture.updateDescriptor();
     }
 }

@@ -64,7 +64,7 @@ namespace MW {
             shadowMapFSUbo.cascadeProjViewMat[i] = cascades[i].lightProjViewMat;
         }
         shadowMapFSUbo.projViewMatrix = renderResource->cameraObject.projViewMatrix;
-        shadowMapFSUbo.lightDir = normalize(-renderResource->cameraObject.lightPos);
+        shadowMapFSUbo.lightDir = normalize(-renderResource->cameraObject.directionalLightPos);
         shadowMapFSUbo.cameraPos = renderResource->cameraObject.position;
 //        shadowMapFSUbo.colorCascades = colorCascades;
         memcpy(shadowMapFSBuffer.mapped, &shadowMapFSUbo, sizeof(shadowMapFSUbo));
@@ -383,7 +383,7 @@ namespace MW {
             glm::vec3 maxExtents = glm::vec3(radius);
             glm::vec3 minExtents = -maxExtents;
 
-            glm::vec3 lightDir = normalize(-renderResource->cameraObject.lightPos);
+            glm::vec3 lightDir = normalize(-renderResource->cameraObject.directionalLightPos);
             glm::mat4 lightViewMatrix = glm::lookAt(frustumCenter - lightDir * -minExtents.z, frustumCenter,
                                                     glm::vec3(0.0f, 1.0f, 0.0f));
             glm::mat4 lightOrthoMatrix = glm::ortho(minExtents.x, maxExtents.x, minExtents.y, maxExtents.y, 0.0f,
@@ -461,6 +461,7 @@ namespace MW {
     }
 
     void CascadeShadowMapPass::updateAfterFramebufferRecreate() {
+        createDescriptorSets();
         createCSMGlobalDescriptor();
     }
 }

@@ -30,6 +30,7 @@ namespace MW {
 
         void preparePassData() override;
 
+        void updateAfterFramebufferRecreate();
     protected:
         void createUniformBuffer();
 
