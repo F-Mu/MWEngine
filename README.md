@@ -14,8 +14,15 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + gltf model loading
 
-+ Deferred+CSM+PCF+SSAO+ToneMapping
++ Deferred+CSM+PCF+SSAO+IBL+ToneMapping
 
+```
+  G-Buffer-Pass 
+  /     |     \
+CSM   SSAO    IBL
+  \     |     /
+  Shading-Pass
+```
 **TODO:**
 
 + Provide scene and object loading
@@ -32,7 +39,7 @@ Part of the code is from this project,https://github.com/SaschaWillems/Vulkan
 
 + Clean up
 
-+ PBR-IBL
++ Camera postprocess
 
 + Separate lighting,shadow,ao pass
 

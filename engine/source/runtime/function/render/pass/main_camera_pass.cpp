@@ -102,8 +102,8 @@ namespace MW {
         {
             // Create G-Buffer SubPass;
             std::array<VkAttachmentReference, 4> gBufferAttachmentReferences{};
-            gBufferAttachmentReferences[g_buffer_position].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            gBufferAttachmentReferences[g_buffer_position].attachment = g_buffer_position;
+            gBufferAttachmentReferences[g_buffer_material].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            gBufferAttachmentReferences[g_buffer_material].attachment = g_buffer_material;
             gBufferAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             gBufferAttachmentReferences[g_buffer_normal].attachment = g_buffer_normal;
             gBufferAttachmentReferences[g_buffer_albedo].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -122,8 +122,8 @@ namespace MW {
         {
             // Create CSM SubPass;
             std::array<VkAttachmentReference, 5> ScreenSpaceInputAttachmentReferences{};
-            ScreenSpaceInputAttachmentReferences[g_buffer_position].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            ScreenSpaceInputAttachmentReferences[g_buffer_position].attachment = g_buffer_position;
+            ScreenSpaceInputAttachmentReferences[g_buffer_material].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            ScreenSpaceInputAttachmentReferences[g_buffer_material].attachment = g_buffer_material;
             ScreenSpaceInputAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             ScreenSpaceInputAttachmentReferences[g_buffer_normal].attachment = g_buffer_normal;
             ScreenSpaceInputAttachmentReferences[g_buffer_albedo].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -146,8 +146,8 @@ namespace MW {
         {
             // Create SSAO SubPass;
             std::array<VkAttachmentReference, 2> SSAOInputAttachmentReferences{};
-            SSAOInputAttachmentReferences[g_buffer_position].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            SSAOInputAttachmentReferences[g_buffer_position].attachment = g_buffer_position;
+            SSAOInputAttachmentReferences[g_buffer_material].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            SSAOInputAttachmentReferences[g_buffer_material].attachment = g_buffer_material;
             SSAOInputAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             SSAOInputAttachmentReferences[g_buffer_normal].attachment = g_buffer_normal;
 
@@ -165,8 +165,8 @@ namespace MW {
             // Create Lighting SubPass;
             // TODO:FIX
             std::array<VkAttachmentReference, 5> LightingInputAttachmentReferences{};
-            LightingInputAttachmentReferences[g_buffer_position].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            LightingInputAttachmentReferences[g_buffer_position].attachment = g_buffer_position;
+            LightingInputAttachmentReferences[g_buffer_material].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            LightingInputAttachmentReferences[g_buffer_material].attachment = g_buffer_material;
             LightingInputAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             LightingInputAttachmentReferences[g_buffer_normal].attachment = g_buffer_normal;
             LightingInputAttachmentReferences[g_buffer_albedo].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -274,13 +274,6 @@ namespace MW {
         dependencies[6].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[6].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-//        dependencies[7].srcSubpass = main_camera_subpass_ssao_pass;
-//        dependencies[7].dstSubpass = main_camera_subpass_lighting_pass;
-//        dependencies[7].srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-//        dependencies[7].dstStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-//        dependencies[7].srcAccessMask = VK_ACCESS_NONE_KHR;
-//        dependencies[7].dstAccessMask = VK_ACCESS_NONE_KHR;
-//        dependencies[7].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
         VkRenderPassCreateInfo renderPassInfo = {};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
         renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
@@ -349,7 +342,7 @@ namespace MW {
 
         for (size_t i = 0; i < swapChainFramebuffers.size(); i++) {
             std::vector<VkImageView> attachments = {
-                    framebuffer.attachments[g_buffer_position].view,
+                    framebuffer.attachments[g_buffer_material].view,
                     framebuffer.attachments[g_buffer_normal].view,
                     framebuffer.attachments[g_buffer_albedo].view,
                     framebuffer.attachments[g_buffer_view_position].view,
@@ -517,7 +510,7 @@ namespace MW {
         framebuffer.attachments.resize(main_camera_g_buffer_type_count + main_camera_custom_type_count);
         // World space position
         createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                         &framebuffer.attachments[g_buffer_position]);
+                         &framebuffer.attachments[g_buffer_material]);
 
         // (World space) Normals
         createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,

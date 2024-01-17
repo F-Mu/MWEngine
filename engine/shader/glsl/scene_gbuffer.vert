@@ -46,9 +46,9 @@ void main()
 //    mat3 mNormal = transpose(inverse(mat3(ubo.model)));
 //    outNormal = mNormal * normalize(inNormal);
 //    outTangent = mNormal * normalize(inTangent);
-//    mat3 normalMatrix = transpose(inverse(mat3(ubo.view)));
-//    outNormal = normalMatrix * inNormal;
-    outNormal = inNormal;
+    mat3 normalMatrix = transpose(inverse(mat3(ubo.view)));
+    outNormal = normalMatrix * inNormal;
+//    outNormal = inNormal;
     outTangent = inTangent;
     outMetallic = inMetallic;
     outRoughness = inRoughness;

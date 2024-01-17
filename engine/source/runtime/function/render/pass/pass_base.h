@@ -8,7 +8,7 @@
 namespace MW {
     class RenderResource;
     enum {
-        g_buffer_position = 0,
+        g_buffer_material = 0,
         g_buffer_normal = 1,
         g_buffer_albedo = 2,
         g_buffer_view_position = 3,

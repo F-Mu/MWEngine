@@ -29,7 +29,7 @@ void main()
     vec3 shadow = subpassLoad(inputShadow).rgb;
     float ao = subpassLoad(inputAO).r;
     vec3 lighting = subpassLoad(inputLighting).rgb;
-    vec3 color = lighting;
+    vec3 color = shadow * ao * lighting;
 
     // Tone mapping
     color = Uncharted2Tonemap(color * uboParams.exposure);

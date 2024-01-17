@@ -1223,7 +1223,7 @@ namespace MW {
                             if (preMultiplyColor) {
                                 vertex.color = primitive->material.baseColorFactor * vertex.color;
                             }
-                            vertex.metallicFactor = primitive->material.metallicFactor + 1;
+                            vertex.metallicFactor = primitive->material.metallicFactor + 0.5;
                             vertex.roughnessFactor = primitive->material.roughnessFactor;
                         }
                     }

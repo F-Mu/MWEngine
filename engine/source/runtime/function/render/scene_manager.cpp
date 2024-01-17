@@ -27,7 +27,7 @@ namespace MW {
     void SceneManager::initialize(SceneManagerInitInfo *initInfo) {
         device = initInfo->device;
         uint32_t glTFLoadingFlags = FileLoadingFlags::PreTransformVertices | FileLoadingFlags::FlipY;
-        loadModel(getAssetPath() + "models/sphere.gltf", glTFLoadingFlags);
+        loadModel(getAssetPath() + "models/sponza/sponza.gltf", glTFLoadingFlags);
         skybox = std::make_shared<VulkanTextureCubeMap>();
         skybox->loadFromFile(getAssetPath() + "textures/hdr/pisa_cube.ktx",
                              VK_FORMAT_R16G16B16A16_SFLOAT, device);

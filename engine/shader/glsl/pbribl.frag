@@ -36,12 +36,12 @@ vec3 prefilteredReflection(vec3 R, float roughness)
 
 void main()
 {
-    vec3 inPos;
     float depth = subpassLoad(inputDepth).r;
     if (depth == 1){
         outColor=vec4(1);
     }
     else {
+        vec3 inPos;
         {
             vec4  ndc                      = vec4(uv_to_ndcxy(inUV), depth, 1.0);
             mat4  inverseProjViewMatrix    = inverse(ubo.projViewMatrix);
@@ -53,7 +53,7 @@ void main()
         vec3 inNormal = subpassLoad(inputNormal).rgb;
         vec4 albedo = subpassLoad(inputAlbedo);
         vec3 N = normalize(inNormal);
-        vec3 V = normalize(ubo.cameraPos - inPos);
+        vec3 V = normalize(inPos - ubo.cameraPos);
         vec3 R = reflect(-V, N);
 
         float metallic = material.r;
@@ -71,8 +71,6 @@ void main()
         }
 
         vec2 brdf = texture(samplerBRDFLUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
-        if(dot(N, V)>0)
-        print(inPos);
         vec3 reflection = prefilteredReflection(R, roughness).rgb;
         vec3 irradiance = texture(samplerIrradiance, N).rgb;
 
@@ -91,5 +89,6 @@ void main()
 
         vec3 color = ambient + Lo;
 
-        outColor = vec4(color, 1.0); }
+        outColor = vec4(color, 1.0);
+    }
 }
