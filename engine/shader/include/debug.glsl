@@ -2,6 +2,9 @@
 void print(float x){
     debugPrintfEXT("float:%f\n", x);
 }
+void print(uint x){
+    debugPrintfEXT("uint:%u\n", x);
+}
 void print(float x, float y){
     debugPrintfEXT("float:%f;%f\n", x, y);
 }

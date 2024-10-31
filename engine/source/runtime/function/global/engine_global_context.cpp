@@ -21,7 +21,9 @@ namespace MW {
     }
 
     void EngineGlobalContext::clear() {
+        inputSystem->clear();
         inputSystem.reset();
+        renderSystem->clean();
         renderSystem.reset();
         windowSystem.reset();
     }

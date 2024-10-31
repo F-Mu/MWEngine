@@ -2,6 +2,8 @@
 #define NDEBUG
 #define GLFW_INCLUDE_VULKAN
 
+#define USE_MESH_SHADER 1
+
 #include <GLFW/glfw3.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -406,7 +408,10 @@ namespace MW {
 
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
-
+#if USE_MESH_SHADER
+        VkPhysicalDeviceMeshShaderPropertiesNV meshShaderPropertiesNv{};
+        VkPhysicalDeviceMeshShaderFeaturesNV meshShaderFeatures{};
+#endif
 //    private:
         void CreateInstance();
 
@@ -452,8 +457,13 @@ namespace MW {
         VkDescriptorPool descriptorPool;
 
         const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-        std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-                                                      VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME};
+        std::vector<const char *> deviceExtensions = {
+                VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+                VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
+#if USE_MESH_SHADER
+                , VK_NV_MESH_SHADER_EXTENSION_NAME,
+#endif
+        };
         uint32_t maxMaterialCount{256};
 
         void createSwapChain();
@@ -490,10 +500,16 @@ namespace MW {
         PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
         PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
         PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
+#if USE_MESH_SHADER
+        PFN_vkCmdDrawMeshTasksNV vkCmdDrawMeshTasksNV;
+#endif
 
         VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferDeviceAddresFeatures{};
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingPipelineFeatures{};
         VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructureFeatures{};
+#if USE_MESH_SHADER
+        VkPhysicalDeviceMeshShaderFeaturesNV enabledMeshShaderFeatures{};
+#endif
         void *deviceCreatepNextChain = nullptr;
         VkPhysicalDeviceFeatures enabledFeatures{};
     };

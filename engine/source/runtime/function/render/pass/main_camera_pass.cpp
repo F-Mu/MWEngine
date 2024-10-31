@@ -3,7 +3,7 @@
 #include <array>
 #include <iostream>
 #include "main_camera_pass.h"
-#include "g_buffer_pass.h"
+#include "mesh_base_pass.h"
 #include "function/render/render_resource.h"
 #include "shadow_passes/cascade_shadow_map_pass.h"
 #include "shadow_passes/deferred_csm_pass.h"
@@ -27,7 +27,11 @@ namespace MW {
 //        createPipelines();
         createSwapchainFramebuffers();
         /* 注意顺序,gBuffer中有global的descriptorSet */
+#if USE_MESH_SHADER
+        gBufferPass = std::make_shared<MeshBaseBufferPass>();
+#else
         gBufferPass = std::make_shared<GBufferPass>();
+#endif
         GBufferPassInitInfo gBufferInfo(init_info);
         gBufferInfo.frameBuffer = &framebuffer;
         gBufferPass->initialize(&gBufferInfo);
@@ -217,11 +221,11 @@ namespace MW {
         dependencies[1].srcSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[1].dstSubpass = main_camera_subpass_csm_pass;
         dependencies[1].srcStageMask =
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         dependencies[1].dstStageMask =
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[1].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[1].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         dependencies[2].srcSubpass = main_camera_subpass_csm_pass;
@@ -237,11 +241,11 @@ namespace MW {
         dependencies[3].srcSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[3].dstSubpass = main_camera_subpass_ssao_pass;
         dependencies[3].srcStageMask =
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         dependencies[3].dstStageMask =
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[3].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[3].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dependencies[3].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[3].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[3].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         dependencies[4].srcSubpass = main_camera_subpass_ssao_pass;
@@ -257,11 +261,11 @@ namespace MW {
         dependencies[5].srcSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[5].dstSubpass = main_camera_subpass_lighting_pass;
         dependencies[5].srcStageMask =
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         dependencies[5].dstStageMask =
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependencies[5].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        dependencies[5].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dependencies[5].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[5].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[5].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         dependencies[6].srcSubpass = main_camera_subpass_lighting_pass;

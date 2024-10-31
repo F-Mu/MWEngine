@@ -15,6 +15,12 @@
 namespace MW {
     VkDescriptorSetLayout descriptorSetLayoutImage = VK_NULL_HANDLE;
     VkDescriptorSetLayout descriptorSetLayoutUbo = VK_NULL_HANDLE;
+#if USE_MESH_SHADER
+    VkDescriptorSetLayout descriptorSetLayoutVertexStorage = VK_NULL_HANDLE;
+    VkDescriptorSetLayout descriptorSetLayoutMeshlet = VK_NULL_HANDLE;
+    uint32_t VertexBindingFirstSet = 1;
+    uint32_t MeshletBindingFirstSet = 2;
+#endif
     VkMemoryPropertyFlags memoryPropertyFlags = 0;
     uint32_t descriptorBindingFlags = DescriptorBindingFlags::ImageBaseColor | DescriptorBindingFlags::ImageNormalMap;
 
@@ -913,6 +919,10 @@ namespace MW {
                 newMesh->primitives.push_back(newPrimitive);
             }
             newNode->mesh = newMesh;
+#if USE_MESH_SHADER
+            if(bUseMeshShader)
+                newMesh->addMeshlets(this->meshlets, indexBuffer);
+#endif
         }
         if (parent) {
             parent->children.push_back(newNode);
@@ -1237,11 +1247,34 @@ namespace MW {
                 metallicRoughnessWorkflow = false;
             }
         }
-
+#if USE_MESH_SHADER
+        size_t meshVertexBufferSize = 0;
+        VulkanBuffer meshVertexStaging;
+        if(bUseMeshShader) {
+            std::vector<MeshVertex> meshVertices;
+            meshVertices.resize(vertexBuffer.size());
+            for (int i = 0; i < vertexBuffer.size(); ++i) {
+                meshVertices[i].inPos = vertexBuffer[i].pos;
+                meshVertices[i].inUV = vertexBuffer[i].uv;
+                meshVertices[i].inColor = vertexBuffer[i].color;
+                meshVertices[i].inNormal = vertexBuffer[i].normal;
+                meshVertices[i].inTangent = vertexBuffer[i].tangent;
+                meshVertices[i].inMetallic = vertexBuffer[i].metallicFactor;
+                meshVertices[i].inRoughness = vertexBuffer[i].roughnessFactor;
+            }
+            meshVertexBufferSize = meshVertices.size() * sizeof(MeshVertex);
+            device->CreateBuffer(
+                    VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                    meshVertexStaging,
+                    meshVertexBufferSize,
+                    meshVertices.data());
+        }
+#endif
         size_t vertexBufferSize = vertexBuffer.size() * sizeof(gltfVertex);
-        size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
-        indices.count = static_cast<uint32_t>(indexBuffer.size());
         vertices.count = static_cast<uint32_t>(vertexBuffer.size());
+        indices.count = static_cast<uint32_t>(indexBuffer.size());
+        size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
 
         assert((vertexBufferSize > 0) && (indexBufferSize > 0));
 
@@ -1265,10 +1298,20 @@ namespace MW {
 
         // Create device local buffers
         // gltfVertex buffer
-        device->CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | memoryPropertyFlags,
-                             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                             vertices.buffer,
-                             vertexBufferSize);
+#if USE_MESH_SHADER
+        if(bUseMeshShader) {
+            device->CreateBuffer(
+                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | memoryPropertyFlags,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                    this->vertexBuffer.buffer,
+                    meshVertexBufferSize);
+        }
+#endif
+        device->CreateBuffer(
+                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | memoryPropertyFlags,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                vertices.buffer,
+                vertexBufferSize);
         // Index buffer
         device->CreateBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | memoryPropertyFlags,
                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -1282,14 +1325,23 @@ namespace MW {
 
         copyRegion.size = vertexBufferSize;
         vkCmdCopyBuffer(copyCmd, vertexStaging.buffer, vertices.buffer.buffer, 1, &copyRegion);
-
+#if USE_MESH_SHADER
+        if (bUseMeshShader) {
+            copyRegion.size = meshVertexBufferSize;
+            vkCmdCopyBuffer(copyCmd, meshVertexStaging.buffer, this->vertexBuffer.buffer.buffer, 1, &copyRegion);
+        }
+#endif
         copyRegion.size = indexBufferSize;
         vkCmdCopyBuffer(copyCmd, indexStaging.buffer, indices.buffer.buffer, 1, &copyRegion);
 
         device->endSingleTimeCommands(copyCmd);
         device->destroyVulkanBuffer(vertexStaging);
         device->destroyVulkanBuffer(indexStaging);
-
+#if USE_MESH_SHADER
+        if (bUseMeshShader) {
+            device->destroyVulkanBuffer(meshVertexStaging);
+        }
+#endif
         getSceneDimensions();
 
         // Setup descriptors
@@ -1353,6 +1405,67 @@ namespace MW {
                 }
             }
         }
+#if USE_MESH_SHADER
+        {
+            if (descriptorSetLayoutMeshlet == VK_NULL_HANDLE && bUseMeshShader) {
+                createMeshletBuffer();
+                std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
+                    setLayoutBindings.push_back(
+                            CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_MESH_BIT_NV, 0));
+                VkDescriptorSetLayoutCreateInfo descriptorLayoutCI{};
+                descriptorLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+                descriptorLayoutCI.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+                descriptorLayoutCI.pBindings = setLayoutBindings.data();
+                device->CreateDescriptorSetLayout(&descriptorLayoutCI, &descriptorSetLayoutMeshlet);
+                device->CreateDescriptorSet(1, descriptorSetLayoutMeshlet, meshBuffer.descriptorSet);
+
+                VkDescriptorBufferInfo MeshletBufferInfo{};
+                MeshletBufferInfo.buffer = meshBuffer.buffer.buffer;
+                MeshletBufferInfo.offset = 0;
+                MeshletBufferInfo.range = sizeof(Meshlet) * meshlets.size();
+                std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
+                descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[0].dstSet = meshBuffer.descriptorSet;
+                descriptorWrites[0].dstBinding = 0;
+                descriptorWrites[0].dstArrayElement = 0;
+                descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                descriptorWrites[0].descriptorCount = 1;
+                descriptorWrites[0].pBufferInfo = &MeshletBufferInfo;
+
+                device->UpdateDescriptorSets(descriptorWrites.size(), descriptorWrites.data());
+            }
+        }
+
+        {
+            if (descriptorSetLayoutVertexStorage == VK_NULL_HANDLE && bUseMeshShader) {
+                std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
+                setLayoutBindings.push_back(
+                        CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_MESH_BIT_NV, 0));
+                VkDescriptorSetLayoutCreateInfo descriptorLayoutCI{};
+                descriptorLayoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+                descriptorLayoutCI.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+                descriptorLayoutCI.pBindings = setLayoutBindings.data();
+                device->CreateDescriptorSetLayout(&descriptorLayoutCI, &descriptorSetLayoutVertexStorage);
+                device->CreateDescriptorSet(1, descriptorSetLayoutMeshlet, this->vertexBuffer.descriptorSet);
+
+                VkDescriptorBufferInfo VertexBufferInfo{};
+                VertexBufferInfo.buffer = this->vertexBuffer.buffer.buffer;
+                VertexBufferInfo.offset = 0;
+                VertexBufferInfo.range = meshVertexBufferSize;
+                std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
+                descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+                descriptorWrites[0].dstSet = this->vertexBuffer.descriptorSet;
+                descriptorWrites[0].dstBinding = 0;
+                descriptorWrites[0].dstArrayElement = 0;
+                descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                descriptorWrites[0].descriptorCount = 1;
+                descriptorWrites[0].pBufferInfo = &VertexBufferInfo;
+
+                device->UpdateDescriptorSets(descriptorWrites.size(), descriptorWrites.data());
+
+            }
+        }
+#endif
     }
 
     void Model::bindBuffers(VkCommandBuffer commandBuffer) {
@@ -1382,7 +1495,13 @@ namespace MW {
                         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
                                                 bindImageSet, 1, &material.descriptorSet, 0, nullptr);
                     }
-                    vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
+#if USE_MESH_SHADER
+                    if (bUseMeshShader && node->mesh->meshletsCount > 0) {
+                        device->vkCmdDrawMeshTasksNV(commandBuffer, node->mesh->meshletsCount, node->mesh->firstMeshlet);
+                    }
+#endif
+                    if(!bUseMeshShader)
+                        vkCmdDrawIndexed(commandBuffer, primitive->indexCount, 1, primitive->firstIndex, 0, 0);
                 }
             }
         }
@@ -1395,8 +1514,18 @@ namespace MW {
                      uint32_t bindImageSet) {
         if (!buffersBound) {
             const VkDeviceSize offsets[1] = {0};
-            vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertices.buffer.buffer, offsets);
-            vkCmdBindIndexBuffer(commandBuffer, indices.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+            if(!bUseMeshShader) {
+                vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertices.buffer.buffer, offsets);
+                vkCmdBindIndexBuffer(commandBuffer, indices.buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+            }
+#if USE_MESH_SHADER
+            else{
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+                                        VertexBindingFirstSet, 1, &vertexBuffer.descriptorSet, 0, nullptr);
+                vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
+                                        MeshletBindingFirstSet, 1, &meshBuffer.descriptorSet, 0, nullptr);
+            }
+#endif
         }
         for (auto &node: nodes) {
             drawNode(node, commandBuffer, renderFlags, pipelineLayout, bindImageSet);
@@ -1534,4 +1663,84 @@ namespace MW {
             prepareNodeDescriptor(child, descriptorSetLayout);
         }
     }
+
+#if USE_MESH_SHADER
+    // https://zhuanlan.zhihu.com/p/110404763
+    void Mesh::addMeshlets(std::vector<Meshlet>&meshlets,const std::vector<uint32_t>&indexBuffer){
+        firstMeshlet = meshlets.size();
+        for(auto&primitive:primitives){
+            Meshlet meshlet = {};
+            std::vector<uint8_t> meshletVertices(primitive->indexCount, 0xff);
+            // 离散化
+            std::map<int, int> meshIndex2LocalIndex;
+            std::map<int, int> localIndex2MeshIndex;
+            std::vector<int> localIndices;
+            for (int i = primitive->firstIndex; i < primitive->firstIndex + primitive->indexCount; ++i) {
+                int id = indexBuffer[i];
+                if (meshIndex2LocalIndex.find(id) == meshIndex2LocalIndex.end()) {
+                    meshIndex2LocalIndex[id] = localIndices.size();
+                    localIndex2MeshIndex[localIndices.size()] = id;
+                    localIndices.emplace_back(id);
+                }
+            }
+            for (size_t i = primitive->firstIndex; i < primitive->firstIndex + primitive->indexCount; i += 3) {
+                unsigned int triangleIndices[3];
+                for (int j = 0; j < 3; ++j)
+                    triangleIndices[j] = meshIndex2LocalIndex[indexBuffer[i + j]];
+                uint8_t* meshletLocalIndex[3];
+                for (int j = 0; j < 3; ++j)
+                    meshletLocalIndex[j] = &meshletVertices[triangleIndices[j]];
+                uint32_t nowVertexCount = meshlet.vertexCount;
+                for (int j = 0; j < 3; ++j)
+                    nowVertexCount += (*meshletLocalIndex[j] == 0xff);
+                if (nowVertexCount > Meshlet::MAX_VERTICES ||
+                    meshlet.indexCount + 3 > Meshlet::MAX_INDICES) {
+                    meshlets.push_back(meshlet);
+                    for (size_t j = 0; j < meshlet.vertexCount; ++j)
+                        meshletVertices[meshIndex2LocalIndex[meshlet.vertices[j]]] = 0xff;
+                    meshlet = {};
+                }
+                for (int j = 0; j < 3; ++j) {
+                    if (*meshletLocalIndex[j] == 0xff) {
+                        *meshletLocalIndex[j] = meshlet.vertexCount;
+                        meshlet.vertices[meshlet.vertexCount++] = localIndex2MeshIndex[triangleIndices[j]];
+                    }
+                    meshlet.indices[meshlet.indexCount++] = *meshletLocalIndex[j];
+                }
+            }
+            if (meshlet.indexCount)
+                meshlets.push_back(meshlet);
+        }
+        meshletsCount = meshlets.size() - firstMeshlet;
+    }
+
+    void Model::createMeshletBuffer()
+    {
+        VkDeviceSize bufferSize = sizeof(Meshlet) * meshlets.size();
+        VulkanBuffer stagingBuffer;
+        device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, bufferSize, meshlets.data());
+
+        device->CreateBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, meshBuffer.buffer, bufferSize);
+        // Copy from staging buffers
+        VkCommandBuffer copyCmd = device->beginSingleTimeCommands();
+
+        VkBufferCopy copyRegion = {};
+
+        copyRegion.size = bufferSize;
+        vkCmdCopyBuffer(copyCmd, stagingBuffer.buffer, meshBuffer.buffer.buffer, 1, &copyRegion);
+
+        device->endSingleTimeCommands(copyCmd);
+        device->destroyVulkanBuffer(stagingBuffer);
+    }
+
+    void Model::setMeshletDescriptorFirstSet(uint32_t firstSet)
+    {
+        MeshletBindingFirstSet = firstSet;
+    }
+
+    void Model::setVertexDescriptorFirstSet(uint32_t firstSet)
+    {
+        VertexBindingFirstSet = firstSet;
+    }
+#endif
 }

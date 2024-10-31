@@ -157,6 +157,10 @@ namespace MW {
         VkPhysicalDeviceProperties2 deviceProperties2{};
         deviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
         deviceProperties2.pNext = &rayTracingPipelineProperties;
+#if USE_MESH_SHADER
+        meshShaderPropertiesNv.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_NV;
+        rayTracingPipelineProperties.pNext = &meshShaderPropertiesNv;
+#endif
         GetPhysicalDeviceProperties2(&deviceProperties2);
 
         // Get acceleration structure properties, which will be used later on in the sample
@@ -164,6 +168,10 @@ namespace MW {
         VkPhysicalDeviceFeatures2 deviceFeatures2{};
         deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
         deviceFeatures2.pNext = &accelerationStructureFeatures;
+#if USE_MESH_SHADER
+        meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV;
+        accelerationStructureFeatures.pNext = &meshShaderFeatures;
+#endif
         GetPhysicalDeviceFeatures2(&deviceFeatures2);
 
         vkGetBufferDeviceAddressKHR = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(device,
@@ -185,6 +193,10 @@ namespace MW {
                 device, "vkGetRayTracingShaderGroupHandlesKHR"));
         vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(
                 device, "vkCreateRayTracingPipelinesKHR"));
+#if USE_MESH_SHADER
+        vkCmdDrawMeshTasksNV = reinterpret_cast<PFN_vkCmdDrawMeshTasksNV>(vkGetDeviceProcAddr(
+                device, "vkCmdDrawMeshTasksNV"));
+#endif
     }
 
     void VulkanDevice::CreateInstance() {
@@ -265,6 +277,10 @@ namespace MW {
 
         // Required by VK_KHR_spirv_1_4
         deviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+
+#if USE_MESH_SHADER
+        deviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+#endif
 
         queueIndices = findQueueFamilies(physicalDevice);
 
@@ -433,7 +449,9 @@ namespace MW {
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
         std::vector<const char *> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
+#if USE_MESH_SHADER
+        extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+#endif
         if (enableValidationLayers) {
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
@@ -601,16 +619,21 @@ namespace MW {
 // Enable features required for ray tracing using feature chaining via pNext
         enabledBufferDeviceAddresFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
         enabledBufferDeviceAddresFeatures.bufferDeviceAddress = VK_TRUE;
+        enabledBufferDeviceAddresFeatures.pNext = &enabledRayTracingPipelineFeatures;
 
         enabledRayTracingPipelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
         enabledRayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
-        enabledRayTracingPipelineFeatures.pNext = &enabledBufferDeviceAddresFeatures;
+        enabledRayTracingPipelineFeatures.pNext = &enabledAccelerationStructureFeatures;
 
         enabledAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
         enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
-        enabledAccelerationStructureFeatures.pNext = &enabledRayTracingPipelineFeatures;
-
-        deviceCreatepNextChain = &enabledAccelerationStructureFeatures;
+#if USE_MESH_SHADER
+        enabledAccelerationStructureFeatures.pNext = &enabledMeshShaderFeatures;
+        enabledMeshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV;
+        enabledMeshShaderFeatures.meshShader = VK_TRUE;
+        enabledMeshShaderFeatures.taskShader = VK_TRUE;
+#endif
+        deviceCreatepNextChain = &enabledBufferDeviceAddresFeatures;
     }
 
     void VulkanDevice::CreateDeviceBuffer(VkBufferUsageFlags usageFlags,

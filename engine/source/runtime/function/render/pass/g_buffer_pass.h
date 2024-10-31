@@ -23,12 +23,12 @@ namespace MW {
 
         void preparePassData() override;
         void updateAfterFramebufferRecreate();
-    private:
+    protected:
+        virtual void createDescriptorSets();
+
+        virtual void createPipelines();
+
         void createUniformBuffer();
-
-        void createDescriptorSets();
-
-        void createPipelines();
 
         void createGlobalDescriptorSets();
 

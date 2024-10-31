@@ -3,14 +3,21 @@
 namespace MW {
 
     void SceneManager::draw(VkCommandBuffer commandBuffer, uint32_t renderFlags, VkPipelineLayout pipelineLayout,
-                            uint32_t bindImageSet, PushConstBlock *pushConstant, uint32_t pushSize) {
+                            uint32_t bindImageSet, PushConstBlock *pushConstant, uint32_t pushSize, bool bUseMeshShader) {
         for (int i = 0; i < models.size(); ++i) {
             auto &model = models[i];
             if (pushConstant) {
                 pushConstant->position = modelPoss[i];
-                vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, pushSize,
+                vkCmdPushConstants(commandBuffer, pipelineLayout,
+                                   bUseMeshShader ? VK_SHADER_STAGE_MESH_BIT_NV : VK_SHADER_STAGE_VERTEX_BIT, 0,
+                                   pushSize,
                                    pushConstant);
             }
+#if USE_MESH_SHADER
+            model->bUseMeshShader = bUseMeshShader;
+            model->setVertexDescriptorFirstSet(2);
+            model->setMeshletDescriptorFirstSet(3);
+#endif
             model->draw(commandBuffer, renderFlags, pipelineLayout, bindImageSet);
         }
     }
@@ -19,7 +26,11 @@ namespace MW {
     SceneManager::loadModel(const std::string &filename, uint32_t fileLoadingFlags,
                             glm::vec3 modelPos, float scale
     ) {
+#if USE_MESH_SHADER
+        models.emplace_back(std::make_shared<Model>(true));
+#else
         models.emplace_back(std::make_shared<Model>());
+#endif
         models.back()->loadFromFile(filename, device.get(), fileLoadingFlags, scale);
         modelPoss.emplace_back(modelPos);
     }
@@ -28,6 +39,7 @@ namespace MW {
         device = initInfo->device;
         uint32_t glTFLoadingFlags = FileLoadingFlags::PreTransformVertices | FileLoadingFlags::FlipY;
         loadModel(getAssetPath() + "models/sponza/sponza.gltf", glTFLoadingFlags);
+//        loadModel(getAssetPath() + "models/cube.gltf", glTFLoadingFlags);
         skybox = std::make_shared<VulkanTextureCubeMap>();
         skybox->loadFromFile(getAssetPath() + "textures/hdr/pisa_cube.ktx",
                              VK_FORMAT_R16G16B16A16_SFLOAT, device);

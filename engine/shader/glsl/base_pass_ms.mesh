@@ -1,0 +1,119 @@
+#version 450
+#extension GL_NV_mesh_shader: require
+#extension GL_GOOGLE_include_directive : enable
+#include "debug.glsl"
+#define MAX_VERTICES 64
+#define MAX_PRIMITIVES 126
+#define MAX_INDICES MAX_PRIMITIVES * 3
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in; // warp(wavefront)
+layout(triangles, max_vertices = MAX_VERTICES, max_primitives = MAX_PRIMITIVES) out;
+
+layout (set = 0, binding = 0) uniform UBO
+{
+    mat4 projection;
+    mat4 view;
+} ubo;
+struct Meshlet
+{
+    uint vertices[MAX_VERTICES];
+    uint indices[MAX_INDICES];
+    uint indexCount;
+    uint vertexCount;
+};
+
+struct Vertex
+{
+    vec3   inPos;
+    float  _padPos;
+    vec2   inUV;
+    vec2   _padUV;
+    vec3   inColor;
+    float  _padColor;
+    vec3   inNormal;
+    float  _padNormal;
+    vec3   inTangent;
+    float  _padTangent;
+    float  inMetallic;
+    float  inRoughness;
+    vec2   _padding;
+};
+
+layout(set = 2,binding = 0) readonly buffer Vertices
+{
+	Vertex vertices[];
+}g_Vertex;
+
+layout(set = 3,binding = 0) readonly buffer Meshlets
+{
+	Meshlet meshlets[];
+}g_Meshlet;
+
+layout (location = 0) out vec3 outNormal[];
+layout (location = 1) out vec2 outUV[];
+layout (location = 2) out vec3 outColor[];
+layout (location = 3) out vec3 outWorldPos[];
+layout (location = 4) out vec3 outTangent[];
+layout (location = 5) out vec3 outViewPos[];
+layout (location = 6) out float outMetallic[];
+layout (location = 7) out float outRoughness[];
+
+layout(push_constant) uniform PushConsts {
+    vec3 position;
+} pushConsts;
+
+uint hash(uint a)
+{
+   a = (a+0x7ed55d16) + (a<<12);
+   a = (a^0xc761c23c) ^ (a>>19);
+   a = (a+0x165667b1) + (a<<5);
+   a = (a+0xd3a2646c) ^ (a<<9);
+   a = (a+0xfd7046c5) + (a<<3);
+   a = (a^0xb55a4f09) ^ (a>>16);
+   return a;
+}
+
+void main()
+{
+    uint mi = gl_WorkGroupID.x;
+    uint ti = gl_LocalInvocationID.x;
+    uint mhash = hash(mi);
+	vec3 mcolor = vec3(float(mhash & 255), float((mhash >> 8) & 255), float((mhash >> 16) & 255)) / 255.0;
+
+
+    //===== Vertext Clip Position =====================
+	for (uint i = ti; i < uint(g_Meshlet.meshlets[mi].vertexCount); i+=32)
+	{
+		uint vi = g_Meshlet.meshlets[mi].vertices[i];
+
+		vec3 pos = g_Vertex.vertices[vi].inPos.xyz;
+
+        vec3 tmpPos = pos + pushConsts.position;
+
+		gl_MeshVerticesNV[i].gl_Position = ubo.projection * ubo.view * vec4(tmpPos,1.0);
+        outUV[i] = g_Vertex.vertices[vi].inUV;
+
+        // Vertex position in world space
+        outWorldPos[i] = tmpPos;
+
+        outViewPos[i] = (ubo.view * vec4(tmpPos,1.0)).xyz;
+
+        mat3 normalMatrix = transpose(inverse(mat3(ubo.view)));
+        outNormal[i] = normalMatrix * g_Vertex.vertices[vi].inNormal;
+        outTangent[i] = g_Vertex.vertices[vi].inTangent;
+        outMetallic[i] = g_Vertex.vertices[vi].inMetallic;
+        outRoughness[i] = g_Vertex.vertices[vi].inRoughness;
+		outColor[i] = mcolor;
+	}
+
+	//===== Index =====================
+	for (uint i = ti; i < uint(g_Meshlet.meshlets[mi].indexCount); i+=32)
+	{
+		gl_PrimitiveIndicesNV[i] = uint(g_Meshlet.meshlets[mi].indices[i]);
+	}
+
+	//===== Primitive Count =====================
+	if (ti == 0){
+		gl_PrimitiveCountNV = uint(g_Meshlet.meshlets[mi].indexCount) / 3;
+	}
+    // Currently just vertex color
+}

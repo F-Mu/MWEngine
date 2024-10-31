@@ -30,12 +30,4 @@ set(SHADER_COMPILE_TARGET MWShaderCompile)
 add_subdirectory(shader)
 add_subdirectory(source/editor)
 add_subdirectory(source/runtime)
-add_subdirectory(source/meta_parser)
 add_subdirectory(3rdparty)
-
-set(CODEGEN_TARGET "MWPreCompile")
-include(source/precompile/precompile.cmake)
-set_target_properties("${CODEGEN_TARGET}" PROPERTIES FOLDER "Engine")
-
-add_dependencies(MWRuntime "${CODEGEN_TARGET}")
-add_dependencies("${CODEGEN_TARGET}" "MWParser")

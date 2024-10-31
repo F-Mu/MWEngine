@@ -42,6 +42,8 @@ namespace MW
 
     extern VkDescriptorSetLayout descriptorSetLayoutImage;
     extern VkDescriptorSetLayout descriptorSetLayoutUbo;
+    extern VkDescriptorSetLayout descriptorSetLayoutVertexStorage;
+    extern VkDescriptorSetLayout descriptorSetLayoutMeshlet;
     extern VkMemoryPropertyFlags memoryPropertyFlags;
     extern uint32_t descriptorBindingFlags;
 
@@ -66,7 +68,34 @@ namespace MW
         void destroy();
         void fromglTfImage(tinygltf::Image& gltfimage, std::string path, VulkanDevice* device);
     };
-
+#if USE_MESH_SHADER
+    struct Meshlet
+    {
+        constexpr static int MAX_VERTICES = 64;
+        constexpr static int MAX_PRIMITIVES = 126;
+        constexpr static int MAX_INDICES = MAX_PRIMITIVES * 3; //Triangle
+        uint32_t vertices[MAX_VERTICES];
+        uint32_t indices[MAX_INDICES];
+        uint32_t indexCount;
+        uint32_t vertexCount;
+    };
+    struct MeshVertex
+    {
+        glm::vec3   inPos;
+        float       _padPos;
+        glm::vec2   inUV;
+        glm::vec2   _padUV;
+        glm::vec3   inColor;
+        float       _padColor;
+        glm::vec3   inNormal;
+        float       _padNormal;
+        glm::vec3   inTangent;
+        float       _padTangent;
+        float       inMetallic = 1.0;
+        float       inRoughness = 1.0;
+        glm::vec2   _padding;
+    };
+#endif
     /*
         glTF material class
     */
@@ -122,6 +151,11 @@ namespace MW
         VulkanDevice* device;
 
         std::vector<Primitive*> primitives;
+#if USE_MESH_SHADER
+        uint32_t firstMeshlet{0};
+        uint32_t meshletsCount{0};
+        void addMeshlets(std::vector<Meshlet>&meshlets,const std::vector<uint32_t>&indexBuffer);
+#endif
         std::string name;
 
         struct UniformBuffer {
@@ -278,12 +312,23 @@ namespace MW
             glm::vec3 center;
             float radius;
         } dimensions;
-
+#if USE_MESH_SHADER
+        struct StorageBuffer{
+            VulkanBuffer buffer;
+            VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+        }meshBuffer,vertexBuffer;
+        std::vector<Meshlet> meshlets;
+        void createMeshletBuffer();
+#endif
+        bool bUseMeshShader {false};
         bool metallicRoughnessWorkflow = true;
         bool buffersBound = false;
         std::string path;
 
         Model() {};
+#if USE_MESH_SHADER
+        Model(bool bUseMeshShader):bUseMeshShader{bUseMeshShader} {};
+#endif
         ~Model();
         void loadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model, std::vector<uint32_t>& indexBuffer, std::vector<gltfVertex>& vertexBuffer, float globalscale);
         void loadSkins(tinygltf::Model& gltfModel);
@@ -300,5 +345,9 @@ namespace MW
         Node* findNode(Node* parent, uint32_t index);
         Node* nodeFromIndex(uint32_t index);
         void prepareNodeDescriptor(Node* node, VkDescriptorSetLayout descriptorSetLayout);
+#if USE_MESH_SHADER
+        void setMeshletDescriptorFirstSet(uint32_t firstSet);
+        void setVertexDescriptorFirstSet(uint32_t firstSet);
+#endif
     };
 }

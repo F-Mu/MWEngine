@@ -20,7 +20,7 @@ namespace MW {
 
         void
         draw(VkCommandBuffer commandBuffer, uint32_t renderFlags = 0, VkPipelineLayout pipelineLayout = VK_NULL_HANDLE,
-             uint32_t bindImageSet = 1, PushConstBlock *pushConstant = nullptr, uint32_t pushSize = 0);
+             uint32_t bindImageSet = 1, PushConstBlock *pushConstant = nullptr, uint32_t pushSize = 0, bool bUseMeshShader = false);
 
         void initialize(SceneManagerInitInfo *initInfo);
 

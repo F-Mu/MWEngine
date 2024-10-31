@@ -44,6 +44,9 @@ namespace MW {
     }
 
     void RenderSystem::clean() {
+        if (device) {
+            vkDeviceWaitIdle(device->device);
+        }
         renderCamera.reset();
         mainCameraPass.reset();
         sceneManager.reset();
