@@ -95,6 +95,7 @@ namespace MW {
         uint64_t deviceAddress = 0;
         VkDeviceMemory memory;
         VkBuffer buffer;
+        void destroy(std::shared_ptr<VulkanDevice> device);
     };
 
     struct StorageImage {
@@ -102,5 +103,6 @@ namespace MW {
         VkImage image = VK_NULL_HANDLE;
         VkImageView view = VK_NULL_HANDLE;
         VkFormat format;
+        void destroy(std::shared_ptr<VulkanDevice> device);
     };
 }  // namespace MW

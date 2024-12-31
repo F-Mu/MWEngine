@@ -53,4 +53,9 @@ namespace MW {
 //        for (auto &position: positions)
 //            loadModel(getAssetPath() + "models/oaktree.gltf", device.get(), glTFLoadingFlags, position);
     }
+    void SceneManager::clean(){
+        skybox->destroy(device);
+        for(auto&model:models)
+            model->clean();
+    }
 }

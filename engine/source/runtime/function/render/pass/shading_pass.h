@@ -21,9 +21,8 @@ namespace MW {
     class ShadingPass : public PassBase {
     public:
         void draw() override;
-
         void initialize(const RenderPassInitInfo *info) override;
-
+        void clean()override;
 //        void preparePassData() override;
     protected:
         virtual void createPipelines();

@@ -22,6 +22,26 @@ namespace MW {
         createLightingGlobalDescriptor();
     }
 
+    void PbrIblPass::clean() {
+        device->DestroyDescriptorSetLayout(LightingGlobalDescriptor.layout);
+        for (auto &pipeline: pipelines) {
+            device->DestroyPipeline(pipeline.pipeline);
+            device->DestroyPipelineLayout(pipeline.layout);
+        }
+        for(auto&descriptor:descriptors){
+            device->DestroyDescriptorSetLayout(descriptor.layout);
+        }
+        device->unMapMemory(pbrIblUboBuffer);
+        device->DestroyVulkanBuffer(pbrIblUboBuffer);
+        lutPass->clean();
+        irradiancePass->clean();
+        prefilteredPass->clean();
+        lutPass.reset();
+        irradiancePass.reset();
+        prefilteredPass.reset();
+        PassBase::clean();
+    }
+
     void PbrIblPass::preparePassData() {
         pbrIblUbo.projViewMatrix = renderResource->cameraObject.projViewMatrix;
         pbrIblUbo.cameraPos = renderResource->cameraObject.position;

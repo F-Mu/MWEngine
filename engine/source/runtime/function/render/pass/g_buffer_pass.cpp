@@ -116,7 +116,8 @@ namespace MW {
         VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
         std::vector<VertexComponent> components{VertexComponent::Position, VertexComponent::UV, VertexComponent::Color,
-                                                VertexComponent::Normal, VertexComponent::Tangent,VertexComponent::MetallicFactor,VertexComponent::RoughnessFactor};
+                                                VertexComponent::Normal, VertexComponent::Tangent,
+                                                VertexComponent::MetallicFactor, VertexComponent::RoughnessFactor};
 
 //        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 //        vertexInputInfo.vertexBindingDescriptionCount = 0;
@@ -262,5 +263,19 @@ namespace MW {
 
     void GBufferPass::updateAfterFramebufferRecreate() {
         createGlobalDescriptorSets();
+    }
+
+    void GBufferPass::clean() {
+        device->DestroyDescriptorSetLayout(gBufferGlobalDescriptor.layout);
+        for (auto &pipeline: pipelines) {
+            device->DestroyPipeline(pipeline.pipeline);
+            device->DestroyPipelineLayout(pipeline.layout);
+        }
+        for(auto&descriptor:descriptors){
+            device->DestroyDescriptorSetLayout(descriptor.layout);
+        }
+        device->unMapMemory(cameraUboBuffer);
+        device->DestroyVulkanBuffer(cameraUboBuffer);
+        PassBase::clean();
     }
 }

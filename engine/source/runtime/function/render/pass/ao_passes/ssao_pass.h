@@ -28,6 +28,8 @@ namespace MW {
 
         void initialize(const RenderPassInitInfo *info) override;
 
+        void clean();
+
         void preparePassData() override;
 
         void updateAfterFramebufferRecreate();

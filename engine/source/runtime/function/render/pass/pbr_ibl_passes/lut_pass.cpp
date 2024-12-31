@@ -15,6 +15,22 @@ namespace MW {
         createPipelines();
     }
 
+    void LutPass::clean(){
+        for (auto &pipeline: pipelines) {
+            device->DestroyPipeline(pipeline.pipeline);
+            device->DestroyPipelineLayout(pipeline.layout);
+        }
+        for (size_t i = 0; i < framebuffer.attachments.size(); i++) {
+            device->DestroyImage(framebuffer.attachments[i].image);
+            device->DestroyImageView(framebuffer.attachments[i].view);
+            device->FreeMemory(framebuffer.attachments[i].mem);
+        }
+        device->DestroyFramebuffer(framebuffer.framebuffer);
+        device->DestroyRenderPass(framebuffer.renderPass);
+        lutTexture.destroy(device);
+        PassBase::clean();
+    }
+
     void LutPass::draw() {
         if (executed) return;
         executed = true;
@@ -126,8 +142,11 @@ namespace MW {
         VkPipelineDynamicStateCreateInfo dynamicState = CreatePipelineDynamicStateCreateInfo(dynamicStateEnables);
         VkPipelineVertexInputStateCreateInfo emptyInputState = CreatePipelineVertexInputStateCreateInfo();
         std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
-        shaderStages[0] = loadShader(device->CreateShaderModule(DEFERRED_VERT), VK_SHADER_STAGE_VERTEX_BIT);
-        shaderStages[1] = loadShader(device->CreateShaderModule(BRDF_LUT_FRAG), VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto vertModule = device->CreateShaderModule(DEFERRED_VERT);
+        auto fragModule = device->CreateShaderModule(BRDF_LUT_FRAG);
+
+        shaderStages[0] = loadShader(vertModule, VK_SHADER_STAGE_VERTEX_BIT);
+        shaderStages[1] = loadShader(fragModule, VK_SHADER_STAGE_FRAGMENT_BIT);
 
         VkGraphicsPipelineCreateInfo pipelineCI = CreatePipelineCreateInfo(pipelines[0].layout, framebuffer.renderPass);
         pipelineCI.pInputAssemblyState = &inputAssemblyState;
@@ -141,6 +160,8 @@ namespace MW {
         pipelineCI.pStages = shaderStages.data();
         pipelineCI.pVertexInputState = &emptyInputState;
         device->CreateGraphicsPipelines(&pipelineCI, &pipelines[0].pipeline);
+        device->DestroyShaderModule(vertModule);
+        device->DestroyShaderModule(fragModule);
     }
 
     void LutPass::createLutTexture() {

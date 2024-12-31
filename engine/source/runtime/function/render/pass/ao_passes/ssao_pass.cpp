@@ -24,6 +24,23 @@ namespace MW {
         createSSAOGlobalDescriptor();
     }
 
+    void SSAOPass::clean() {
+        device->DestroyDescriptorSetLayout(SSAOGlobalDescriptor.layout);
+        for (auto &pipeline: pipelines) {
+            device->DestroyPipeline(pipeline.pipeline);
+            device->DestroyPipelineLayout(pipeline.layout);
+        }
+        for (auto &descriptor: descriptors) {
+            device->DestroyDescriptorSetLayout(descriptor.layout);
+        }
+        device->unMapMemory(cameraUboBuffer);
+        device->DestroyVulkanBuffer(cameraUboBuffer);
+        device->unMapMemory(SSAOKernelBuffer);
+        device->DestroyVulkanBuffer(SSAOKernelBuffer);
+        SSAONoise.destroy(device);
+        PassBase::clean();
+    }
+
     void SSAOPass::preparePassData() {
         SSAOUbo.projection = renderResource->cameraObject.projMatrix;
         memcpy(cameraUboBuffer.mapped, &SSAOUbo, sizeof(SSAOUbo));

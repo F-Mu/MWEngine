@@ -261,6 +261,12 @@ namespace MW {
 
         void DestroySemaphore(VkSemaphore semaphore, const VkAllocationCallbacks *pAllocator = nullptr);
 
+        void DestroyRenderPass(VkRenderPass renderPass, const VkAllocationCallbacks *pAllocator = nullptr);
+
+        void DestroyPipeline(VkPipeline pipeline, const VkAllocationCallbacks *pAllocator = nullptr);
+
+        void DestroyPipelineLayout(VkPipelineLayout pipelineLayout, const VkAllocationCallbacks *pAllocator = nullptr);
+
         void DestroyFence(VkFence fence, const VkAllocationCallbacks *pAllocator = nullptr);
 
         void DestroySwapchainKHR(VkSwapchainKHR swapChain, const VkAllocationCallbacks *pAllocator = nullptr);
@@ -350,9 +356,11 @@ namespace MW {
 
         RayTracingScratchBuffer createScratchBuffer(VkDeviceSize size);
 
-        void destroyScratchBuffer(RayTracingScratchBuffer &scratchBuffer);
+        void DestroyScratchBuffer(RayTracingScratchBuffer &scratchBuffer);
 
-        void destroyVulkanBuffer(VulkanBuffer &vulkanBuffer);
+        void DestroyVulkanBuffer(VulkanBuffer &vulkanBuffer);
+
+        void DestroyVkBuffer(VkBuffer &vulkanBuffer);
 
         uint32_t getAccelerationStructureDeviceAddressKHR(const VkAccelerationStructureDeviceAddressInfoKHR *pInfo);
 
@@ -380,6 +388,13 @@ namespace MW {
                                             uint32_t infoCount,
                                             const VkAccelerationStructureBuildGeometryInfoKHR *pInfos,
                                             const VkAccelerationStructureBuildRangeInfoKHR *const *ppBuildRangeInfos);
+
+        void flushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool, bool free = true);
+
+        void flushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, bool free = true);
+
+        void DestroyAccelerationStructureKHR(VkAccelerationStructureKHR accelerationStructure,
+                                             const VkAllocationCallbacks *pAllocator = nullptr);
 
         static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -467,7 +482,8 @@ namespace MW {
         uint32_t maxMaterialCount{256};
 
         void createSwapChain();
-        void createDefaultSampler(VkFilter filter,VkSampler *sampler);
+
+        void createDefaultSampler(VkFilter filter, VkSampler *sampler);
 
         void createSwapChainImageViews();
 

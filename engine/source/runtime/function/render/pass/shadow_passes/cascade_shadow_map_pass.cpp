@@ -34,6 +34,23 @@ namespace MW {
         createCSMGlobalDescriptor();
     }
 
+    void CascadeShadowMapPass::clean() {
+        device->DestroyDescriptorSetLayout(CSMGlobalDescriptor.layout);
+        for (auto &pipeline: pipelines) {
+            device->DestroyPipeline(pipeline.pipeline);
+            device->DestroyPipelineLayout(pipeline.layout);
+        }
+        for(auto&descriptor:descriptors){
+            device->DestroyDescriptorSetLayout(descriptor.layout);
+        }
+        device->unMapMemory(shadowMapFSBuffer);
+        device->DestroyVulkanBuffer(shadowMapFSBuffer);
+        device->unMapMemory(cameraUboBuffer);
+        device->DestroyVulkanBuffer(cameraUboBuffer);
+        depthPass->clean();
+        depthPass.reset();
+        PassBase::clean();
+    }
     void CascadeShadowMapPass::preparePassData() {
         /* 原神分享会：8级cascade，前4级每帧更新，后4级8帧之内更新 */
         static uint32_t frame = -1;
@@ -408,7 +425,6 @@ namespace MW {
     }
 
     void CascadeShadowMapPass::setCascadeSplits() {
-
         auto camera = engineGlobalContext.renderSystem->getRenderCamera();
         float nearClip = camera->getNearClip();
         float farClip = camera->getFarClip();

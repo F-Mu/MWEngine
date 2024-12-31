@@ -11,6 +11,7 @@
 #include "pbr_ibl_passes/pbr_ibl_pass.h"
 #include "function/global/engine_global_context.h"
 #include "function/render/scene_manager.h"
+#include "function/input/input_system.h"
 #include "shading_pass.h"
 #include "scene_frag.h"
 #include "scene_vert.h"
@@ -55,6 +56,40 @@ namespace MW {
         ShadingPassInitInfo shadingInfo(init_info);
         shadingInfo.frameBuffer = &framebuffer;
         shadingPass->initialize(&shadingInfo);
+
+        UIPass = std::make_shared<UIOverlay>();
+        UIPassInitInfo uiInfo(init_info);
+        uiInfo.renderPass = framebuffer.renderPass;
+        uiInfo.colorFormat = device->swapChainImageFormat;
+        uiInfo.depthFormat = device->swapChainDepthFormat;
+        uiInfo.queue = device->graphicsQueue;
+        UIPass->initialize(&uiInfo);
+    }
+
+    void MainCameraPass::clean() {
+//        UIPass->clean();
+        shadingPass->clean();
+        lightingPass->clean();
+        ssaoPass->clean();
+        shadowMapPass->clean();
+        gBufferPass->clean();
+
+//        UIPass.reset();
+        shadingPass.reset();
+        lightingPass.reset();
+        ssaoPass.reset();
+        shadowMapPass.reset();
+        gBufferPass.reset();
+        for (size_t i = 0; i < framebuffer.attachments.size(); i++) {
+            device->DestroyImage(framebuffer.attachments[i].image);
+            device->DestroyImageView(framebuffer.attachments[i].view);
+            device->FreeMemory(framebuffer.attachments[i].mem);
+        }
+        device->DestroyRenderPass(framebuffer.renderPass);
+        for (auto framebuffer: swapChainFramebuffers) {
+            device->DestroyFramebuffer(framebuffer);
+        }
+        PassBase::clean();
     }
 
     void MainCameraPass::createRenderPass() {
@@ -209,7 +244,16 @@ namespace MW {
             subpassDescs[main_camera_subpass_shading_pass].colorAttachmentCount = ShadingOutputAttachmentReferences.size();
             subpassDescs[main_camera_subpass_shading_pass].pColorAttachments = ShadingOutputAttachmentReferences.data();
         }
-        std::array<VkSubpassDependency, 7> dependencies = {};
+        {
+            // Create UI SubPass;
+            std::array<VkAttachmentReference, 1> UIOutputAttachmentReferences{};
+            UIOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            UIOutputAttachmentReferences[0].attachment = main_camera_swap_chain_image;
+            subpassDescs[main_camera_subpass_ui_pass].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+            subpassDescs[main_camera_subpass_ui_pass].colorAttachmentCount = UIOutputAttachmentReferences.size();
+            subpassDescs[main_camera_subpass_ui_pass].pColorAttachments = UIOutputAttachmentReferences.data();
+        }
+        std::array<VkSubpassDependency, 8> dependencies = {};
         dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
         dependencies[0].dstSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -277,6 +321,17 @@ namespace MW {
         dependencies[6].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         dependencies[6].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[6].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+
+        dependencies[7].srcSubpass = main_camera_subpass_shading_pass;
+        dependencies[7].dstSubpass = main_camera_subpass_ui_pass;
+        dependencies[7].srcStageMask =
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependencies[7].dstStageMask =
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        dependencies[7].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependencies[7].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+        dependencies[7].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         VkRenderPassCreateInfo renderPassInfo = {};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -425,7 +480,8 @@ namespace MW {
 //                                               pipelines[0].layout, 1);
 //        scene.draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages, pipelines[0].layout, 1);
 //        vkCmdDraw(device->getCurrentCommandBuffer(), 3, 1, 0, 0);
-
+        vkCmdNextSubpass(device->getCurrentCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
+        drawUI(device->getCurrentCommandBuffer());
         vkCmdEndRenderPass(device->getCurrentCommandBuffer());
     }
 
@@ -528,15 +584,69 @@ namespace MW {
         createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                          &framebuffer.attachments[g_buffer_view_position]);
 
-        // shadow (color)
+        // Shadow (color)
         createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                          &framebuffer.attachments[main_camera_shadow]);
 
-        // ssao (color)
+        // SSAO (color)
         createAttachment(VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                          &framebuffer.attachments[main_camera_ao]);
-        // ssao (color)
+        // IBL (color)
         createAttachment(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                          &framebuffer.attachments[main_camera_lighting]);
+    }
+
+    void MainCameraPass::drawUI(const VkCommandBuffer commandBuffer) {
+//        VkViewport viewport{};
+//        viewport.x = 0.0f;
+//        viewport.y = 0.0f;
+//        viewport.width = (float) device->getSwapchainInfo().extent.width;
+//        viewport.height = (float) device->getSwapchainInfo().extent.height;
+//        viewport.minDepth = 0.0f;
+//        viewport.maxDepth = 1.0f;
+//        vkCmdSetViewport(device->getCurrentCommandBuffer(), 0, 1, &viewport);
+//        vkCmdSetScissor(device->getCurrentCommandBuffer(), 0, 1, device->getSwapchainInfo().scissor);
+        UIPass->draw(commandBuffer);
+    }
+
+    void MainCameraPass::updateOverlay(float delta_time) {
+        // The overlay does not need to be updated with each frame, so we limit the update rate
+        // Not only does this save performance but it also makes display of fast changig values like fps more stable
+        UIPass->updateTimer -= delta_time;
+        if (UIPass->updateTimer >= 0.0f) {
+            return;
+        }
+        // Update at max. rate of 30 fps
+        UIPass->updateTimer = 1.0f / 30.0f;
+
+        ImGuiIO &io = ImGui::GetIO();
+        io.DisplaySize = ImVec2((float) device->getSwapchainInfo().extent.width,
+                                (float) device->getSwapchainInfo().extent.height);
+        io.DeltaTime = delta_time;
+
+        auto mouseState = engineGlobalContext.inputSystem->getMouseState();
+        io.MousePos = ImVec2(mouseState.position.x, mouseState.position.y);
+        io.MouseDown[0] = mouseState.buttons.left;
+        io.MouseDown[1] = mouseState.buttons.right;
+        io.MouseDown[2] = mouseState.buttons.middle;
+
+        ImGui::NewFrame();
+
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+        ImGui::Begin("MW Engine", nullptr,
+                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+        ImGui::TextUnformatted(device->properties.deviceName);
+        ImGui::PushItemWidth(110.0f * UIPass->scale);
+//        OnUpdateUIOverlay(&UI);
+        ImGui::PopItemWidth();
+
+        ImGui::End();
+        ImGui::PopStyleVar();
+        ImGui::Render();
+        UIPass->update();
+    }
+
+    void MainCameraPass::processAfterPass() {
+        UIPass->update();
     }
 }

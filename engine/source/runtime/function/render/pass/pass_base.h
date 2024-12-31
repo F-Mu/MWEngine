@@ -32,7 +32,8 @@ namespace MW {
         main_camera_subpass_ssao_pass = 2,
         main_camera_subpass_lighting_pass = 3,
         main_camera_subpass_shading_pass = 4,
-        main_camera_subpass_count = 5
+        main_camera_subpass_ui_pass = 5,
+        main_camera_subpass_count = 6
     };
     struct RenderPassInitInfo {
         std::shared_ptr<VulkanDevice> device;
@@ -83,6 +84,8 @@ namespace MW {
         virtual std::vector<VkDescriptorSetLayout> getDescriptorSetLayouts() const;
 
         virtual void initialize(const RenderPassInitInfo *info);
+
+        virtual void clean();
 
         virtual void preparePassData();
 

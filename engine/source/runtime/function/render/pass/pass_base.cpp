@@ -8,6 +8,11 @@ namespace MW {
 
     void PassBase::preparePassData() {}
 
+    void PassBase::clean() {
+        renderResource.reset();
+        device.reset();
+    }
+
     void PassBase::draw() {}
 
     VkRenderPass PassBase::getRenderPass() const { return framebuffer.renderPass; }

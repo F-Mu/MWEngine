@@ -24,6 +24,8 @@ namespace MW {
 
         void initialize(SceneManagerInitInfo *initInfo);
 
+        void clean();
+
         std::shared_ptr<VulkanTextureCubeMap> getSkyBox() { return skybox; }
 
     private:

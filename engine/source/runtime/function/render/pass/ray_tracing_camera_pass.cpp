@@ -18,6 +18,26 @@ namespace MW {
         createShaderBindingTable();
     }
 
+    void RayTracingCameraPass::clean() {
+        device->unMapMemory(hitShaderBindingTable);
+        device->unMapMemory(missShaderBindingTable);
+        device->unMapMemory(raygenShaderBindingTable);
+        device->DestroyVulkanBuffer(hitShaderBindingTable);
+        device->DestroyVulkanBuffer(missShaderBindingTable);
+        device->DestroyVulkanBuffer(raygenShaderBindingTable);
+        for (auto &pipeline: pipelines) {
+            device->DestroyPipeline(pipeline.pipeline);
+            device->DestroyPipelineLayout(pipeline.layout);
+        }
+        for (auto &descriptor: descriptors)
+            device->DestroyDescriptorSetLayout(descriptor.layout);
+        device->unMapMemory(cameraUniformBuffer);
+        device->DestroyVulkanBuffer(cameraUniformBuffer);
+        storageImage.destroy(device);
+        topLevelAS.destroy(device);
+        bottomLevelAS.destroy(device);
+    }
+
     void RayTracingCameraPass::createBottomLevelAccelerationStructure() {
         // Instead of a simple triangle, we'll be loading a more complex scene for this example
         // The shaders are accessing the vertex and index buffers of the scene, so the proper usage flag has to be set on the vertex and index buffers for the scene
@@ -118,7 +138,7 @@ namespace MW {
         accelerationDeviceAddressInfo.accelerationStructure = bottomLevelAS.handle;
         bottomLevelAS.deviceAddress = device->getAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
 
-        device->destroyScratchBuffer(scratchBuffer);
+        device->DestroyScratchBuffer(scratchBuffer);
     }
 
     void RayTracingCameraPass::createTopLevelAccelerationStructure() {
@@ -223,8 +243,8 @@ namespace MW {
         accelerationDeviceAddressInfo.accelerationStructure = topLevelAS.handle;
         topLevelAS.deviceAddress = device->getAccelerationStructureDeviceAddressKHR(&accelerationDeviceAddressInfo);
 
-        device->destroyScratchBuffer(scratchBuffer);
-        device->destroyVulkanBuffer(instancesBuffer);
+        device->DestroyScratchBuffer(scratchBuffer);
+        device->DestroyVulkanBuffer(instancesBuffer);
     }
 
     void RayTracingCameraPass::createStorageImage() {

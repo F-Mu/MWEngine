@@ -48,9 +48,12 @@ namespace MW {
             vkDeviceWaitIdle(device->device);
         }
         renderCamera.reset();
+        mainCameraPass->clean();
         mainCameraPass.reset();
+        sceneManager->clean();
         sceneManager.reset();
         if (device) {
+            vkDeviceWaitIdle(device->device);
             device->clean();
             device.reset();
         }
@@ -84,11 +87,24 @@ namespace MW {
         renderResource->cameraObject.lights[3] = glm::vec4(p, -p * 0.5f, -p, 1.0f);
         mainCameraPass->preparePassData();
         device->prepareBeforePass(std::bind(&RenderSystem::passUpdateAfterRecreateSwapchain, this));
+        mainCameraPass->updateOverlay(delta_time);
         mainCameraPass->draw();
         device->submitCommandBuffers(std::bind(&RenderSystem::passUpdateAfterRecreateSwapchain, this));
+//        garbageCollection();
+//        mainCameraPass->processAfterPass();
     }
 
     void RenderSystem::passUpdateAfterRecreateSwapchain() {
         mainCameraPass->updateAfterFramebufferRecreate();
+    }
+
+    void RenderSystem::garbageCollection() {
+        for (auto &vulkanBuffer: deletedBuffer)
+            device->DestroyVulkanBuffer(vulkanBuffer);
+        deletedBuffer.clear();
+    }
+
+    void RenderSystem::registerGarbageBuffer(VulkanBuffer &vulkanBuffer) {
+        deletedBuffer.emplace_back(vulkanBuffer);
     }
 }

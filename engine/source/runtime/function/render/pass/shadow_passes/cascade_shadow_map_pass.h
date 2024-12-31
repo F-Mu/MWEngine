@@ -42,6 +42,8 @@ namespace MW {
 
         void initialize(const RenderPassInitInfo *info) override;
 
+        void clean()override;
+
         void preparePassData() override;
 
         void drawDepth();

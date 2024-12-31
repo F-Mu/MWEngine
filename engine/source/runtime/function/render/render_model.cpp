@@ -186,7 +186,7 @@ namespace MW {
                                  0, nullptr, 1, &imageMemoryBarrier);
 
             device->endSingleTimeCommands(copyCmd);
-            device->destroyVulkanBuffer(stagingBuffer);
+            device->DestroyVulkanBuffer(stagingBuffer);
 
             // Generate the mip chain (glTF uses jpg and png, so we need to create this manually)
             VkCommandBuffer blitCmd = device->beginSingleTimeCommands();
@@ -349,7 +349,7 @@ namespace MW {
             device->endSingleTimeCommands(copyCmd);
             this->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-            device->destroyVulkanBuffer(stagingBuffer);
+            device->DestroyVulkanBuffer(stagingBuffer);
 
             ktxTexture_Destroy(ktxTexture);
         }
@@ -447,7 +447,7 @@ namespace MW {
     };
 
     Mesh::~Mesh() {
-        device->destroyVulkanBuffer(uniformBuffer.buffer);
+        device->DestroyVulkanBuffer(uniformBuffer.buffer);
         for (auto primitive: primitives) {
             delete primitive;
         }
@@ -652,7 +652,7 @@ namespace MW {
         emptyTexture.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         // Clean up staging resources
-        device->destroyVulkanBuffer(stagingBuffer);
+        device->DestroyVulkanBuffer(stagingBuffer);
 
         VkSamplerCreateInfo samplerCreateInfo{};
         samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -684,8 +684,33 @@ namespace MW {
 	glTF model loading and rendering class
 */
     Model::~Model() {
-        device->destroyVulkanBuffer(vertices.buffer);
-        device->destroyVulkanBuffer(indices.buffer);
+//        device->DestroyVulkanBuffer(vertices.buffer);
+//        device->DestroyVulkanBuffer(indices.buffer);
+//        for (auto texture: textures) {
+//            texture.destroy();
+//        }
+//        for (auto node: nodes) {
+//            delete node;
+//        }
+//        for (auto skin: skins) {
+//            delete skin;
+//        }
+//        if (descriptorSetLayoutUbo != VK_NULL_HANDLE) {
+//            device->DestroyDescriptorSetLayout(descriptorSetLayoutUbo);
+//            descriptorSetLayoutUbo = VK_NULL_HANDLE;
+//        }
+//        if (descriptorSetLayoutImage != VK_NULL_HANDLE) {
+//            device->DestroyDescriptorSetLayout(descriptorSetLayoutImage);
+//            descriptorSetLayoutImage = VK_NULL_HANDLE;
+//        }
+//        emptyTexture.destroy();
+    }
+
+    void Model::clean() {
+        device->DestroyVulkanBuffer(vertices.buffer);
+        device->DestroyVulkanBuffer(indices.buffer);
+        device->DestroyVulkanBuffer(meshBuffer.buffer);
+        device->DestroyVulkanBuffer(vertexBuffer.buffer);
         for (auto texture: textures) {
             texture.destroy();
         }
@@ -703,6 +728,16 @@ namespace MW {
             device->DestroyDescriptorSetLayout(descriptorSetLayoutImage);
             descriptorSetLayoutImage = VK_NULL_HANDLE;
         }
+#if USE_MESH_SHADER
+        if (descriptorSetLayoutVertexStorage != VK_NULL_HANDLE) {
+            device->DestroyDescriptorSetLayout(descriptorSetLayoutVertexStorage);
+            descriptorSetLayoutVertexStorage = VK_NULL_HANDLE;
+        }
+        if (descriptorSetLayoutMeshlet != VK_NULL_HANDLE) {
+            device->DestroyDescriptorSetLayout(descriptorSetLayoutMeshlet);
+            descriptorSetLayoutMeshlet = VK_NULL_HANDLE;
+        }
+#endif
         emptyTexture.destroy();
     }
 
@@ -1335,11 +1370,11 @@ namespace MW {
         vkCmdCopyBuffer(copyCmd, indexStaging.buffer, indices.buffer.buffer, 1, &copyRegion);
 
         device->endSingleTimeCommands(copyCmd);
-        device->destroyVulkanBuffer(vertexStaging);
-        device->destroyVulkanBuffer(indexStaging);
+        device->DestroyVulkanBuffer(vertexStaging);
+        device->DestroyVulkanBuffer(indexStaging);
 #if USE_MESH_SHADER
         if (bUseMeshShader) {
-            device->destroyVulkanBuffer(meshVertexStaging);
+            device->DestroyVulkanBuffer(meshVertexStaging);
         }
 #endif
         getSceneDimensions();
@@ -1666,9 +1701,9 @@ namespace MW {
 
 #if USE_MESH_SHADER
     // https://zhuanlan.zhihu.com/p/110404763
-    void Mesh::addMeshlets(std::vector<Meshlet>&meshlets,const std::vector<uint32_t>&indexBuffer){
+    void Mesh::addMeshlets(std::vector<Meshlet> &meshlets, const std::vector<uint32_t> &indexBuffer) {
         firstMeshlet = meshlets.size();
-        for(auto&primitive:primitives){
+        for (auto &primitive: primitives) {
             Meshlet meshlet = {};
             std::vector<uint8_t> meshletVertices(primitive->indexCount, 0xff);
             // 离散化
@@ -1687,7 +1722,7 @@ namespace MW {
                 unsigned int triangleIndices[3];
                 for (int j = 0; j < 3; ++j)
                     triangleIndices[j] = meshIndex2LocalIndex[indexBuffer[i + j]];
-                uint8_t* meshletLocalIndex[3];
+                uint8_t *meshletLocalIndex[3];
                 for (int j = 0; j < 3; ++j)
                     meshletLocalIndex[j] = &meshletVertices[triangleIndices[j]];
                 uint32_t nowVertexCount = meshlet.vertexCount;
@@ -1730,7 +1765,7 @@ namespace MW {
         vkCmdCopyBuffer(copyCmd, stagingBuffer.buffer, meshBuffer.buffer.buffer, 1, &copyRegion);
 
         device->endSingleTimeCommands(copyCmd);
-        device->destroyVulkanBuffer(stagingBuffer);
+        device->DestroyVulkanBuffer(stagingBuffer);
     }
 
     void Model::setMeshletDescriptorFirstSet(uint32_t firstSet)

@@ -27,6 +27,7 @@ namespace MW {
         VkImageView view;
         VkSampler sampler;
         VkDescriptorImageInfo descriptor;
+
         void setDescriptor() {
             descriptor.sampler = sampler;
             descriptor.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
@@ -46,6 +47,8 @@ namespace MW {
         void drawLayer();
 
         void initialize(const RenderPassInitInfo *info) override;
+
+        void clean() override;
 
         std::vector<UniformBufferObject> uniformBufferObjects;
 

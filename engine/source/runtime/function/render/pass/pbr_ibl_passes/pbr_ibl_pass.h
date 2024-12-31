@@ -21,6 +21,7 @@ namespace MW {
     public:
         void preparePassData() override;
         void initialize(const RenderPassInitInfo *info) override;
+        void clean()override;
         void draw() override;
         void updateAfterFramebufferRecreate();
     protected:

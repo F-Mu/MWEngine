@@ -24,6 +24,27 @@ namespace MW {
         createFramebuffers();
     }
 
+    void DepthPass::clean() {
+        for (size_t i = 0; i < framebuffer.attachments.size(); i++) {
+            device->DestroyImage(framebuffer.attachments[i].image);
+            device->DestroyImageView(framebuffer.attachments[i].view);
+            device->FreeMemory(framebuffer.attachments[i].mem);
+        }
+        for(auto&frameBuffer:depthFramebuffers)
+            device->DestroyFramebuffer(frameBuffer);
+        for (auto &pipeline: pipelines) {
+            device->DestroyPipeline(pipeline.pipeline);
+            device->DestroyPipelineLayout(pipeline.layout);
+        }
+        for (auto &descriptor: descriptors) {
+            device->DestroyDescriptorSetLayout(descriptor.layout);
+        }
+        for (auto &buffer: uniformBuffers)
+            device->DestroyVulkanBuffer(buffer);
+        depth.destroy(device->device);
+        device->DestroyRenderPass(framebuffer.renderPass);
+        PassBase::clean();
+    }
     void DepthPass::createRenderPass() {
         VkFormat depthFormat = device->findDepthFormat(true);
 
@@ -330,7 +351,7 @@ namespace MW {
 
         PushConstBlock pushConstant;
         engineGlobalContext.getScene()->draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages,
-                                               pipelines[0].layout, 1, &pushConstant, sizeof(pushConstant));
+                                             pipelines[0].layout, 1, &pushConstant, sizeof(pushConstant));
         vkCmdEndRenderPass(commandBuffer);
     }
 
@@ -348,14 +369,14 @@ namespace MW {
         scissor.offset = {0, 0};
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        for (auto&i:needUpdate) {
+        for (auto &i: needUpdate) {
             nowArrayLayer = i;
             draw();
         }
     }
 
     void DepthPass::preparePassData() {
-        for (auto&i:needUpdate)
+        for (auto &i: needUpdate)
             memcpy(uniformBuffers[i].mapped, &uniformBufferObjects[i], sizeof(UniformBufferObject));
     }
 }

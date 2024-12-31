@@ -39,11 +39,14 @@ namespace MW {
 
         void passUpdateAfterRecreateSwapchain();
 
+        void registerGarbageBuffer(VulkanBuffer& vulkanBuffer);
+
         std::shared_ptr<RenderCamera> getRenderCamera() { return renderCamera; }
         std::shared_ptr<SceneManager> getScene() { return sceneManager; }
-
         std::shared_ptr<VulkanDevice> device;
     private:
+        void garbageCollection();
+        std::vector<VulkanBuffer> deletedBuffer;
         std::shared_ptr<RenderResource> renderResource;
         std::shared_ptr<MainCameraPass> mainCameraPass;
         std::shared_ptr<WindowSystem> windowSystem;

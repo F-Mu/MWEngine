@@ -6,10 +6,11 @@
 
 namespace MW {
     struct GBufferPassInitInfo : public RenderPassInitInfo {
-        PassBase::Framebuffer* frameBuffer;
+        PassBase::Framebuffer *frameBuffer;
 
         explicit GBufferPassInitInfo(const RenderPassInitInfo *info) : RenderPassInitInfo(*info) {};
     };
+
     struct GBufferCameraProject {
         glm::mat4 projection;
         glm::mat4 view;
@@ -21,8 +22,12 @@ namespace MW {
 
         void initialize(const RenderPassInitInfo *info) override;
 
+        void clean() override;
+
         void preparePassData() override;
+
         void updateAfterFramebufferRecreate();
+
     protected:
         virtual void createDescriptorSets();
 
@@ -34,6 +39,6 @@ namespace MW {
 
         GBufferCameraProject gBufferCameraProject;
         VulkanBuffer cameraUboBuffer;
-        Framebuffer* fatherFramebuffer;
+        Framebuffer *fatherFramebuffer;
     };
 }

@@ -44,7 +44,7 @@ namespace MW {
     class CubePass : public PassBase {
     public:
         void initialize(const RenderPassInitInfo *info) override;
-
+        void clean() override;
         void draw() override;
         VulkanTextureCubeMap cubeMap;
 

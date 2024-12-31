@@ -24,6 +24,26 @@ namespace MW {
         createPipelines();
     }
 
+    void CubePass::clean() {
+        for (auto &pipeline: pipelines) {
+            device->DestroyPipeline(pipeline.pipeline);
+            device->DestroyPipelineLayout(pipeline.layout);
+        }
+        for (size_t i = 0; i < framebuffer.attachments.size(); i++) {
+            device->DestroyImage(framebuffer.attachments[i].image);
+            device->DestroyImageView(framebuffer.attachments[i].view);
+            device->FreeMemory(framebuffer.attachments[i].mem);
+        }
+        device->DestroyFramebuffer(framebuffer.framebuffer);
+        for (auto &descriptor: descriptors) {
+            device->DestroyDescriptorSetLayout(descriptor.layout);
+        }
+        device->DestroyRenderPass(framebuffer.renderPass);
+        cubeMap.destroy(device);
+        cube.clean();
+        PassBase::clean();
+    }
+
     void CubePass::draw() {
         if (executed) return;
         executed = true;
@@ -95,7 +115,7 @@ namespace MW {
                         glm::perspective((float) (M_PI / 2.0), 1.0f, 0.1f, 512.0f) * matrices[f];
 
                 memcpy(pushData, &pushBlockBuffer.pushBlock.mvp, sizeof(pushBlockBuffer.pushBlock.mvp));
-                memcpy((char*)pushData + sizeof(pushBlockBuffer.pushBlock.mvp), pushBlockBuffer.pushBlock.data,
+                memcpy((char *) pushData + sizeof(pushBlockBuffer.pushBlock.mvp), pushBlockBuffer.pushBlock.data,
                        pushBlockBuffer.size - sizeof(pushBlockBuffer.pushBlock.mvp));
                 vkCmdPushConstants(cmdBuf, pipelines[0].layout,
                                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
@@ -307,8 +327,10 @@ namespace MW {
         std::vector<VkDynamicState> dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
         VkPipelineDynamicStateCreateInfo dynamicState = CreatePipelineDynamicStateCreateInfo(dynamicStateEnables);
         std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
-        shaderStages[0] = loadShader(device->CreateShaderModule(CUBE_VERT), VK_SHADER_STAGE_VERTEX_BIT);
-        shaderStages[1] = loadShader(device->CreateShaderModule(*fragShader), VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto vertModule = device->CreateShaderModule(CUBE_VERT);
+        auto fragModule = device->CreateShaderModule(*fragShader);
+        shaderStages[0] = loadShader(vertModule, VK_SHADER_STAGE_VERTEX_BIT);
+        shaderStages[1] = loadShader(fragModule, VK_SHADER_STAGE_FRAGMENT_BIT);
 
         VkGraphicsPipelineCreateInfo pipelineCI = CreatePipelineCreateInfo(pipelines[0].layout, framebuffer.renderPass);
         pipelineCI.pInputAssemblyState = &inputAssemblyState;
@@ -323,6 +345,8 @@ namespace MW {
         pipelineCI.pVertexInputState = gltfVertex::getPipelineVertexInputState(
                 {VertexComponent::Position});
         device->CreateGraphicsPipelines(&pipelineCI, &pipelines[0].pipeline);
+        device->DestroyShaderModule(vertModule);
+        device->DestroyShaderModule(fragModule);
     }
 
     void CubePass::createCubeMap() {

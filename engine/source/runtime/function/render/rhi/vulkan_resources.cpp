@@ -112,7 +112,7 @@ namespace MW {
         device->endSingleTimeCommands(copyCmd);
 
         // Clean up staging resources
-        device->destroyVulkanBuffer(stagingBuffer);
+        device->DestroyVulkanBuffer(stagingBuffer);
 
         // Create sampler
         VkSamplerCreateInfo samplerCreateInfo = {};
@@ -276,9 +276,21 @@ namespace MW {
 
         // Clean up staging resources
         ktxTexture_Destroy(ktxTexture);
-        device->destroyVulkanBuffer(stagingBuffer);
+        device->DestroyVulkanBuffer(stagingBuffer);
 
         // Update descriptor image info member that can be used for setting up descriptor sets
         updateDescriptor();
+    }
+
+    void StorageImage::destroy(std::shared_ptr<VulkanDevice> device)  {
+        device->DestroyImageView(view);
+        device->DestroyImage(image);
+        device->FreeMemory(memory);
+    }
+
+    void AccelerationStructure::destroy(std::shared_ptr<VulkanDevice> device)  {
+        device->DestroyVkBuffer(buffer);
+        device->DestroyAccelerationStructureKHR(handle);
+        device->FreeMemory(memory);
     }
 }

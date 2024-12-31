@@ -14,6 +14,7 @@ namespace MW {
     public:
         void initialize(const RenderPassInitInfo *info) override;
         void draw() override;
+        void clean() override;
         VulkanTexture2D lutTexture;
     private:
         void createRenderPass();

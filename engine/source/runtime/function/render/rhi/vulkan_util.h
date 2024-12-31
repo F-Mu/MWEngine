@@ -98,7 +98,7 @@ namespace MW {
         return pipelineLayoutCreateInfo;
     }
 
-    inline VkVertexInputBindingDescription vertexInputBindingDescription(
+    inline VkVertexInputBindingDescription CreateVertexInputBindingDescription(
             uint32_t binding,
             uint32_t stride,
             VkVertexInputRate inputRate) {
@@ -109,7 +109,7 @@ namespace MW {
         return vInputBindDescription;
     }
 
-    inline VkVertexInputAttributeDescription vertexInputAttributeDescription(
+    inline VkVertexInputAttributeDescription CreateVertexInputAttributeDescription(
             uint32_t binding,
             uint32_t location,
             VkFormat format,
@@ -387,7 +387,13 @@ namespace MW {
         specializationInfo.pData = data;
         return specializationInfo;
     }
-
+    inline VkFenceCreateInfo CreateFenceCreateInfo(VkFenceCreateFlags flags = 0)
+    {
+        VkFenceCreateInfo fenceCreateInfo {};
+        fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceCreateInfo.flags = flags;
+        return fenceCreateInfo;
+    }
     const std::string getAssetPath();
 
     bool fileExists(const std::string &filename);

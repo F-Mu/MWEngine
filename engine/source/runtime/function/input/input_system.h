@@ -1,7 +1,7 @@
 #pragma once
 
 #include "runtime/core/math/math.h"
-
+#include "glm/glm.hpp"
 namespace MW {
     enum class KeyCommand : unsigned int {
         forward = 1 << 0,               // W
@@ -18,16 +18,27 @@ namespace MW {
 
         void onCursorPos(double currentCursorX, double currentCursorY);
 
+        void onMouseButton(int button, int action, int mods);
+
         void initialize();
 
         void tick();
 
         uint32_t getKeyCommand() { return keyCommand; }
 //        void processKeyCommand();
-
+        struct MouseState{
+            struct {
+                bool left = false;
+                bool right = false;
+                bool middle = false;
+            } buttons;
+            glm::vec2 position;
+        };
         void clear();
-
+        const MouseState& getMouseState(){return mouseState;}
     private:
+        /** @brief State of mouse/touch input */
+        MouseState mouseState;
         uint32_t keyCommand;
 
         void calculateCursorDeltaAngles();

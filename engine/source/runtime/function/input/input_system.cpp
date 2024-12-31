@@ -73,6 +73,33 @@ namespace MW {
         lastCursorY = currentCursorY;
     }
 
+    void InputSystem::onMouseButton(int button, int action, int mods) {
+        if (button == GLFW_MOUSE_BUTTON_LEFT) {
+            if (engineGlobalContext.windowSystem->isMouseButtonDown(button)) {
+                mouseState.buttons.left = true;
+                mouseState.position = {lastCursorX, lastCursorY};
+            } else {
+                mouseState.buttons.left = false;
+            }
+        }
+        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+            if (engineGlobalContext.windowSystem->isMouseButtonDown(button)) {
+                mouseState.buttons.right = true;
+                mouseState.position = {lastCursorX, lastCursorY};
+            } else {
+                mouseState.buttons.right = false;
+            }
+        }
+        if (button == GLFW_MOUSE_BUTTON_MIDDLE) {
+            if (engineGlobalContext.windowSystem->isMouseButtonDown(button)) {
+                mouseState.buttons.middle = true;
+                mouseState.position = {lastCursorX, lastCursorY};
+            } else {
+                mouseState.buttons.middle = false;
+            }
+        }
+    }
+
     void InputSystem::initialize() {
 
         std::shared_ptr<WindowSystem> windowSystem = engineGlobalContext.windowSystem;
@@ -85,6 +112,10 @@ namespace MW {
                                                   std::placeholders::_4));
         windowSystem->registerOnCursorPosFunc(
                 std::bind(&InputSystem::onCursorPos, this, std::placeholders::_1, std::placeholders::_2));
+        windowSystem->registerOnMouseButtonFunc(std::bind(&InputSystem::onMouseButton, this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3));
     }
 
     void InputSystem::tick() {

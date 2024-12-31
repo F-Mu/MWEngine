@@ -19,7 +19,17 @@ namespace MW {
         createToneMappingDescriptors();
         createPipelines();
     }
-
+    void ShadingPass::clean() {
+        for(auto&pipeline:pipelines){
+            device->DestroyPipeline(pipeline.pipeline);
+            device->DestroyPipelineLayout(pipeline.layout);
+        }
+        for(auto&descriptor:descriptors)
+            device->DestroyDescriptorSetLayout(descriptor.layout);
+        device->unMapMemory(shadingParamsUBOBuffer);
+        device->DestroyVulkanBuffer(shadingParamsUBOBuffer);
+        PassBase::clean();
+    }
     void ShadingPass::createPipelines() {
         pipelines.resize(1);
         std::vector<VkDescriptorSetLayout> layouts = {CSMGlobalDescriptor.layout, SSAOGlobalDescriptor.layout,

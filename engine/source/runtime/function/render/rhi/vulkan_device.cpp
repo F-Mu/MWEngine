@@ -116,6 +116,22 @@ namespace MW {
     }
 
     void VulkanDevice::clean() {
+        if(defaultNearestSampler != VK_NULL_HANDLE)
+            DestroySampler(defaultNearestSampler);
+        if(defaultLinearSampler != VK_NULL_HANDLE)
+            DestroySampler(defaultLinearSampler);
+        // cleanup synchronization objects
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            DestroySemaphore(renderFinishedSemaphores[i]);
+            DestroySemaphore(imageAvailableSemaphores[i]);
+            DestroyFence(inFlightFences[i]);
+            // vkFreeCommandBuffers(device_,swapChainCommandPools[i],1,&commandBuffers[i]);
+//            vkDestroyCommandPool(device, swapChainCommandPools[i], nullptr);
+        }
+
+        DestroyImageView(depthImageViews);
+        DestroyImage(depthImages);
+        FreeMemory(depthImageMemorys);
         for (auto imageView: swapChainImageViews) {
             DestroyImageView(imageView);
         }
@@ -124,17 +140,9 @@ namespace MW {
         if (swapChain != nullptr) {
             DestroySwapchainKHR(swapChain);
         }
-
-        DestroyImageView(depthImageViews);
-        DestroyImage(depthImages);
-        FreeMemory(depthImageMemorys);
-
-        // cleanup synchronization objects
+        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            DestroySemaphore(renderFinishedSemaphores[i]);
-            DestroySemaphore(imageAvailableSemaphores[i]);
-            DestroyFence(inFlightFences[i]);
-            // vkFreeCommandBuffers(device_,swapChainCommandPools[i],1,&commandBuffers[i]);
+            vkFreeCommandBuffers(device, swapChainCommandPools[i], 1, &commandBuffers[i]);
             vkDestroyCommandPool(device, swapChainCommandPools[i], nullptr);
         }
         vkDestroyCommandPool(device, commandPool, nullptr);
@@ -924,6 +932,18 @@ namespace MW {
         vkDestroySemaphore(device, semaphore, pAllocator);
     }
 
+    void VulkanDevice::DestroyRenderPass(VkRenderPass renderPass, const VkAllocationCallbacks *pAllocator) {
+        vkDestroyRenderPass(device, renderPass, pAllocator);
+    }
+
+    void VulkanDevice::DestroyPipeline(VkPipeline pipeline, const VkAllocationCallbacks *pAllocator) {
+        vkDestroyPipeline(device, pipeline, pAllocator);
+    }
+
+    void VulkanDevice::DestroyPipelineLayout(VkPipelineLayout pipelineLayout, const VkAllocationCallbacks *pAllocator) {
+        vkDestroyPipelineLayout(device, pipelineLayout, pAllocator);
+    }
+
     void VulkanDevice::DestroyFence(VkFence fence, const VkAllocationCallbacks *pAllocator) {
         vkDestroyFence(device, fence, pAllocator);
     }
@@ -1290,7 +1310,7 @@ namespace MW {
         imageInfo.format = depthFormat;
         imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT|VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+        imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
         imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.flags = 0;
@@ -1488,7 +1508,7 @@ namespace MW {
         return scratchBuffer;
     }
 
-    void VulkanDevice::destroyScratchBuffer(RayTracingScratchBuffer &scratchBuffer) {
+    void VulkanDevice::DestroyScratchBuffer(RayTracingScratchBuffer &scratchBuffer) {
         if (scratchBuffer.memory != VK_NULL_HANDLE) {
             vkFreeMemory(device, scratchBuffer.memory, nullptr);
         }
@@ -1497,7 +1517,13 @@ namespace MW {
         }
     }
 
-    void VulkanDevice::destroyVulkanBuffer(VulkanBuffer &vulkanBuffer) {
+    void VulkanDevice::DestroyVkBuffer(VkBuffer &vulkanBuffer) {
+        if (vulkanBuffer != VK_NULL_HANDLE) {
+            vkDestroyBuffer(device, vulkanBuffer, nullptr);
+        }
+    }
+
+    void VulkanDevice::DestroyVulkanBuffer(VulkanBuffer &vulkanBuffer) {
         if (vulkanBuffer.memory != VK_NULL_HANDLE) {
             vkFreeMemory(device, vulkanBuffer.memory, nullptr);
         }
@@ -1709,5 +1735,51 @@ namespace MW {
         samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
         samplerInfo.unnormalizedCoordinates = VK_FALSE;
         CreateSampler(&samplerInfo, sampler);
+    }
+
+    /**
+    * Finish command buffer recording and submit it to a queue
+    *
+    * @param commandBuffer Command buffer to flush
+    * @param queue Queue to submit the command buffer to
+    * @param pool Command pool on which the command buffer has been created
+    * @param free (Optional) Free the command buffer once it has been submitted (Defaults to true)
+    *
+    * @note The queue that the command buffer is submitted to must be from the same family index as the pool it was allocated from
+    * @note Uses a fence to ensure command buffer has finished executing
+    */
+    void VulkanDevice::flushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool, bool free) {
+        if (commandBuffer == VK_NULL_HANDLE) {
+            return;
+        }
+
+        VK_CHECK_RESULT(vkEndCommandBuffer(commandBuffer));
+        VkSubmitInfo submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffer;
+        // Create fence to ensure that the command buffer has finished executing
+        VkFenceCreateInfo fenceInfo = CreateFenceCreateInfo();
+        VkFence fence;
+        CreateFence(&fenceInfo, &fence);
+        // Submit to the queue
+        VK_CHECK_RESULT(vkQueueSubmit(queue, 1, &submitInfo, fence));
+        // Wait for the fence to signal that command buffer has finished executing
+        WaitForFences(1, &fence);
+        DestroyFence(fence);
+        if (free) {
+            vkFreeCommandBuffers(device, pool, 1, &commandBuffer);
+        }
+    }
+
+    void VulkanDevice::flushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, bool free) {
+        return flushCommandBuffer(commandBuffer, queue, commandPool, free);
+    }
+
+    void VulkanDevice::DestroyAccelerationStructureKHR(VkAccelerationStructureKHR accelerationStructure,
+                                                       const VkAllocationCallbacks *pAllocator) {
+        if (vkDestroyAccelerationStructureKHR) {
+            vkDestroyAccelerationStructureKHR(device, accelerationStructure, pAllocator);
+        }
     }
 }

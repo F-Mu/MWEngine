@@ -28,6 +28,25 @@ namespace MW {
         createCSMGlobalDescriptor();
     }
 
+//    void DeferredCSMPass::clean() {
+//        device->DestroyDescriptorSetLayout(CSMGlobalDescriptor.layout);
+//        for (auto &pipeline: pipelines) {
+//            device->DestroyPipeline(pipeline.pipeline);
+//            device->DestroyPipelineLayout(pipeline.layout);
+//        }
+//        for(auto&descriptor:descriptors){
+//            device->DestroyDescriptorSetLayout(descriptor.layout);
+//        }
+//        device->unMapMemory(shadowMapFSBuffer);
+//        device->DestroyVulkanBuffer(shadowMapFSBuffer);
+//        device->unMapMemory(cameraUboBuffer);
+//        device->DestroyVulkanBuffer(cameraUboBuffer);
+//        skybox->destroy(device);
+//        depthPass->clean();
+//
+//        PassBase::clean();
+//    }
+
     void DeferredCSMPass::createDescriptorSets() {
         descriptors.resize(1);
         std::vector<VkDescriptorSetLayoutBinding> binding = {

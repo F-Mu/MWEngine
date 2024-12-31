@@ -2,6 +2,7 @@
 
 #include "pass_base.h"
 #include "function/render/render_model.h"
+#include "ui_pass/VulkanUIOverlay.h"
 
 namespace MW {
     class CascadeShadowMapPass;
@@ -24,6 +25,13 @@ namespace MW {
 
         virtual void updateAfterFramebufferRecreate();
 
+        void drawUI(VkCommandBuffer commandBuffer);
+
+        void updateOverlay(float delta_time);
+
+        void clean();
+
+        void processAfterPass();
     protected:
         VulkanBuffer cameraUniformBuffer;
         std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -32,6 +40,7 @@ namespace MW {
         std::shared_ptr<ShadingPass> shadingPass;
         std::shared_ptr<PbrIblPass> lightingPass;
         std::shared_ptr<GBufferPass> gBufferPass;
+        std::shared_ptr<UIOverlay> UIPass;
         Model scene;
 
         void loadModel();

@@ -7,6 +7,8 @@ namespace MW {
     public:
         void initialize(const RenderPassInitInfo *init_info) override;
 
+        void clean() override;
+
         void createBottomLevelAccelerationStructure();
 
         void createTopLevelAccelerationStructure();

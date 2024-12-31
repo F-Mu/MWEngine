@@ -74,8 +74,8 @@ namespace MW
         constexpr static int MAX_VERTICES = 64;
         constexpr static int MAX_PRIMITIVES = 126;
         constexpr static int MAX_INDICES = MAX_PRIMITIVES * 3; //Triangle
-        uint32_t vertices[MAX_VERTICES];
-        uint32_t indices[MAX_INDICES];
+        uint32_t vertices[MAX_VERTICES]; // 针对全局IndexBuffer的索引
+        uint32_t indices[MAX_INDICES]; // 局部IndexBuffer
         uint32_t indexCount;
         uint32_t vertexCount;
     };
@@ -330,6 +330,7 @@ namespace MW
         Model(bool bUseMeshShader):bUseMeshShader{bUseMeshShader} {};
 #endif
         ~Model();
+        void clean();
         void loadNode(Node* parent, const tinygltf::Node& node, uint32_t nodeIndex, const tinygltf::Model& model, std::vector<uint32_t>& indexBuffer, std::vector<gltfVertex>& vertexBuffer, float globalscale);
         void loadSkins(tinygltf::Model& gltfModel);
         void loadImages(tinygltf::Model& gltfModel, VulkanDevice* device);
