@@ -47,6 +47,7 @@ namespace MW {
         if (device) {
             vkDeviceWaitIdle(device->device);
         }
+        garbageCollection();
         renderCamera.reset();
         mainCameraPass->clean();
         mainCameraPass.reset();

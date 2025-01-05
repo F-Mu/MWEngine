@@ -17,6 +17,8 @@ namespace MW {
 
     class MainCameraPass : public PassBase {
     public:
+        typedef std::function<void(UIOverlay* overlay)> UIFunc;
+
         void initialize(const RenderPassInitInfo *init_info) override;
 
         void preparePassData() override;
@@ -32,6 +34,9 @@ namespace MW {
         void clean();
 
         void processAfterPass();
+
+        void registerOnKeyFunc(const UIFunc& func) { UIFunctions.push_back(func); }
+
     protected:
         VulkanBuffer cameraUniformBuffer;
         std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -41,6 +46,7 @@ namespace MW {
         std::shared_ptr<PbrIblPass> lightingPass;
         std::shared_ptr<GBufferPass> gBufferPass;
         std::shared_ptr<UIOverlay> UIPass;
+        std::vector<UIFunc> UIFunctions;
         Model scene;
 
         void loadModel();
@@ -48,6 +54,10 @@ namespace MW {
         void createAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment);
 
         void createAttachments();
+#if USE_VRS
+        void createShadingRateImage();
+#endif
+        virtual void OnUpdateUIOverlay(UIOverlay* overlay);
 
         virtual void createRenderPass();
 

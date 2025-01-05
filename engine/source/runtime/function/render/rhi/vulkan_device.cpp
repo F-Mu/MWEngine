@@ -160,14 +160,21 @@ namespace MW {
     }
 
     void VulkanDevice::findFunctionRequired() {
+        std::vector<void*>properties;
+        properties.emplace_back(&rayTracingPipelineProperties);
         // Get ray tracing pipeline properties, which will be used later on in the sample
         rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
         VkPhysicalDeviceProperties2 deviceProperties2{};
         deviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
         deviceProperties2.pNext = &rayTracingPipelineProperties;
-#if USE_MESH_SHADER
-        meshShaderPropertiesNv.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_NV;
-        rayTracingPipelineProperties.pNext = &meshShaderPropertiesNv;
+#if USE_VRS | 1
+        // Get properties of this extensions, which also contains texel sizes required to setup the image
+        physicalDeviceShadingRateImageProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_PROPERTIES_KHR;
+        rayTracingPipelineProperties.pNext = &physicalDeviceShadingRateImageProperties;
+#endif
+#if USE_MESH_SHADER | 1
+        meshShaderProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_NV;
+        physicalDeviceShadingRateImageProperties.pNext = &meshShaderProperties;
 #endif
         GetPhysicalDeviceProperties2(&deviceProperties2);
 
@@ -176,7 +183,7 @@ namespace MW {
         VkPhysicalDeviceFeatures2 deviceFeatures2{};
         deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
         deviceFeatures2.pNext = &accelerationStructureFeatures;
-#if USE_MESH_SHADER
+#if USE_MESH_SHADER | 1
         meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV;
         accelerationStructureFeatures.pNext = &meshShaderFeatures;
 #endif
@@ -202,8 +209,24 @@ namespace MW {
         vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(
                 device, "vkCreateRayTracingPipelinesKHR"));
 #if USE_MESH_SHADER
+#if NV_MESH_SHADER
         vkCmdDrawMeshTasksNV = reinterpret_cast<PFN_vkCmdDrawMeshTasksNV>(vkGetDeviceProcAddr(
                 device, "vkCmdDrawMeshTasksNV"));
+#elif EXT_MESH_SHADER
+        vkCmdDrawMeshTasksEXT = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(
+                device, "vkCmdDrawMeshTasksEXT"));
+#endif
+#endif
+#if USE_VRS
+        if (!vkCreateRenderPass2KHR) {
+            vkCreateRenderPass2KHR = reinterpret_cast<PFN_vkCreateRenderPass2KHR>(vkGetInstanceProcAddr(instance, "vkCreateRenderPass2KHR"));
+        }
+        if (!vkCmdSetFragmentShadingRateKHR) {
+            vkCmdSetFragmentShadingRateKHR = reinterpret_cast<PFN_vkCmdSetFragmentShadingRateKHR>(vkGetDeviceProcAddr(device, "vkCmdSetFragmentShadingRateKHR"));
+        }
+        if (!vkGetPhysicalDeviceFragmentShadingRatesKHR) {
+            vkGetPhysicalDeviceFragmentShadingRatesKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR>(vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceFragmentShadingRatesKHR"));
+        }
 #endif
     }
 
@@ -624,7 +647,7 @@ namespace MW {
     }
 
     void VulkanDevice::getEnabledFeatures() {
-// Enable features required for ray tracing using feature chaining via pNext
+        // Enable features required for ray tracing using feature chaining via pNext
         enabledBufferDeviceAddresFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
         enabledBufferDeviceAddresFeatures.bufferDeviceAddress = VK_TRUE;
         enabledBufferDeviceAddresFeatures.pNext = &enabledRayTracingPipelineFeatures;
@@ -635,8 +658,15 @@ namespace MW {
 
         enabledAccelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
         enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
-#if USE_MESH_SHADER
-        enabledAccelerationStructureFeatures.pNext = &enabledMeshShaderFeatures;
+#if USE_VRS | 1
+        enabledAccelerationStructureFeatures.pNext = &enabledPhysicalDeviceShadingRateImageFeaturesKHR;
+        enabledPhysicalDeviceShadingRateImageFeaturesKHR.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR;
+        enabledPhysicalDeviceShadingRateImageFeaturesKHR.attachmentFragmentShadingRate = VK_TRUE;
+        enabledPhysicalDeviceShadingRateImageFeaturesKHR.pipelineFragmentShadingRate = VK_TRUE;
+        enabledPhysicalDeviceShadingRateImageFeaturesKHR.primitiveFragmentShadingRate = VK_TRUE;
+#endif
+#if USE_MESH_SHADER | 1
+        enabledPhysicalDeviceShadingRateImageFeaturesKHR.pNext = &enabledMeshShaderFeatures;
         enabledMeshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV;
         enabledMeshShaderFeatures.meshShader = VK_TRUE;
         enabledMeshShaderFeatures.taskShader = VK_TRUE;

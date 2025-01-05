@@ -20,10 +20,14 @@ namespace MW {
         main_camera_custom_type_count = 3,
         //
         main_camera_depth = 7,
-        main_camera_swap_chain_image = 8,
+#if USE_VRS
+        main_camera_shading_rate_image = 8,
+#endif
+        main_camera_swap_chain_image = main_camera_depth + USE_VRS + 1,
+        main_camera_device_type_count = 2 + USE_VRS,
         //
         main_camera_post_process_type_count = 0,
-        main_camera_type_count = 9
+        main_camera_type_count = 9 + USE_VRS
     };
 
     enum {

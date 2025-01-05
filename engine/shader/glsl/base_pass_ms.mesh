@@ -1,5 +1,13 @@
-#version 450
-#extension GL_NV_mesh_shader: require
+#version 460
+#define NV_MESH_SHADER 1
+#define EXT_MESH_SHADER 0
+#if EXT_MESH_SHADER
+#extension GL_EXT_mesh_shader : require
+#elif NV_MESH_SHADER
+#extension GL_NV_mesh_shader : require
+// #extension GL_NV_primitive_shading_rate : require
+#endif
+#extension GL_EXT_fragment_shading_rate : require
 #extension GL_GOOGLE_include_directive : enable
 #include "debug.glsl"
 #define MAX_VERTICES 64
@@ -59,6 +67,9 @@ layout (location = 7) out float outRoughness[];
 
 layout(push_constant) uniform PushConsts {
     vec3 position;
+#if EXT_MESH_SHADER
+    uint meshletOffset;
+#endif
 } pushConsts;
 
 uint hash(uint a)
@@ -75,6 +86,9 @@ uint hash(uint a)
 void main()
 {
     uint mi = gl_WorkGroupID.x;
+#if EXT_MESH_SHADER
+    // mi += pushConsts.meshletOffset;
+#endif
     uint ti = gl_LocalInvocationID.x;
     uint mhash = hash(mi);
 	vec3 mcolor = vec3(float(mhash & 255), float((mhash >> 8) & 255), float((mhash >> 16) & 255)) / 255.0;
@@ -88,8 +102,11 @@ void main()
 		vec3 pos = g_Vertex.vertices[vi].inPos.xyz;
 
         vec3 tmpPos = pos + pushConsts.position;
-
+#if EXT_MESH_SHADER
+        gl_MeshVerticesEXT[i].gl_Position = ubo.projection * ubo.view * vec4(tmpPos,1.0);
+#elif NV_MESH_SHADER
 		gl_MeshVerticesNV[i].gl_Position = ubo.projection * ubo.view * vec4(tmpPos,1.0);
+#endif
         outUV[i] = g_Vertex.vertices[vi].inUV;
 
         // Vertex position in world space
@@ -108,12 +125,24 @@ void main()
 	//===== Index =====================
 	for (uint i = ti; i < uint(g_Meshlet.meshlets[mi].indexCount); i+=32)
 	{
+#if EXT_MESH_SHADER
+	    gl_PrimitiveTriangleIndicesEXT[i / 3][i % 3] = uint(g_Meshlet.meshlets[mi].indices[i]);
+		// gl_MeshPrimitivesEXT[i].gl_PrimitiveShadingRateEXT = (1<<1)&(1>>1);
+		// gl_MeshPrimitivesEXT[i].gl_CullPrimitiveEXT = true;
+#elif NV_MESH_SHADER
 		gl_PrimitiveIndicesNV[i] = uint(g_Meshlet.meshlets[mi].indices[i]);
+        //gl_MeshPrimitivesEXT[i].gl_ShadingRateNV = (1<<1)&(1>>1);
+#endif
 	}
 
 	//===== Primitive Count =====================
+
 	if (ti == 0){
+#if EXT_MESH_SHADER
+	    SetMeshOutputsEXT(g_Meshlet.meshlets[mi].indexCount,uint(g_Meshlet.meshlets[mi].indexCount) / 3);
+#elif NV_MESH_SHADER
 		gl_PrimitiveCountNV = uint(g_Meshlet.meshlets[mi].indexCount) / 3;
+#endif
 	}
     // Currently just vertex color
 }

@@ -3,7 +3,17 @@
 #define GLFW_INCLUDE_VULKAN
 
 #define USE_MESH_SHADER 1
-
+#if USE_MESH_SHADER
+#define NV_MESH_SHADER 1
+#define EXT_MESH_SHADER 0
+#endif
+#if !NV_MESH_SHADER && !EXT_MESH_SHADER
+#define USE_MESH_SHADER 0
+#endif
+#if NV_MESH_SHADER & EXT_MESH_SHADER
+#define USE_MESH_SHADER 0
+#endif
+#define USE_VRS 0
 #include <GLFW/glfw3.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -420,13 +430,6 @@ namespace MW {
         uint32_t currentImageIndex{};
         int currentFrameIndex{};
         QueueFamilyIndices queueIndices;
-
-        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
-        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
-#if USE_MESH_SHADER
-        VkPhysicalDeviceMeshShaderPropertiesNV meshShaderPropertiesNv{};
-        VkPhysicalDeviceMeshShaderFeaturesNV meshShaderFeatures{};
-#endif
 //    private:
         void CreateInstance();
 
@@ -516,15 +519,40 @@ namespace MW {
         PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR;
         PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR;
         PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR;
-#if USE_MESH_SHADER
+#if USE_MESH_SHADER | 1
+#if NV_MESH_SHADER
         PFN_vkCmdDrawMeshTasksNV vkCmdDrawMeshTasksNV;
+#elif EXT_MESH_SHADER
+        PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT;
 #endif
-
+#endif
         VkPhysicalDeviceBufferDeviceAddressFeatures enabledBufferDeviceAddresFeatures{};
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR enabledRayTracingPipelineFeatures{};
         VkPhysicalDeviceAccelerationStructureFeaturesKHR enabledAccelerationStructureFeatures{};
-#if USE_MESH_SHADER
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties{};
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
+#if USE_MESH_SHADER | 1
+#if NV_MESH_SHADER
+        VkPhysicalDeviceMeshShaderPropertiesNV meshShaderProperties{};
+        VkPhysicalDeviceMeshShaderFeaturesNV meshShaderFeatures{};
         VkPhysicalDeviceMeshShaderFeaturesNV enabledMeshShaderFeatures{};
+#elif EXT_MESH_SHADER
+        VkPhysicalDeviceMeshShaderPropertiesEXT meshShaderProperties{};
+        VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
+        VkPhysicalDeviceMeshShaderFeaturesEXT enabledMeshShaderFeatures{};
+#endif
+#endif
+#if USE_VRS | 1
+        VkPhysicalDeviceFragmentShadingRatePropertiesKHR physicalDeviceShadingRateImageProperties{};
+        VkPhysicalDeviceFragmentShadingRateFeaturesKHR enabledPhysicalDeviceShadingRateImageFeaturesKHR{};
+
+        PFN_vkGetPhysicalDeviceFragmentShadingRatesKHR vkGetPhysicalDeviceFragmentShadingRatesKHR{ nullptr };
+        PFN_vkCmdSetFragmentShadingRateKHR vkCmdSetFragmentShadingRateKHR{ nullptr };
+        PFN_vkCreateRenderPass2KHR vkCreateRenderPass2KHR{ nullptr };
+
+        const VkPhysicalDeviceFragmentShadingRatePropertiesKHR
+        getVSRProperties() const { return physicalDeviceShadingRateImageProperties; }
+
 #endif
         void *deviceCreatepNextChain = nullptr;
         VkPhysicalDeviceFeatures enabledFeatures{};

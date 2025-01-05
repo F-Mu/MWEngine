@@ -325,6 +325,8 @@ namespace MW {
         pipelineCreateInfo.pVertexInputState = &vertexInputState;
         device->CreateGraphicsPipelines(&pipelineCreateInfo, &pipeline);
 //        vkCreateGraphicsPipelines(device->device, pipelineCache, 1, &pipelineCreateInfo, nullptr, &pipeline);
+        device->DestroyShaderModule(vertShaderModule);
+        device->DestroyShaderModule(fragShaderModule);
     }
 
     /** Update vertex and index buffer containing the imGui elements when required */

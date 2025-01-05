@@ -709,8 +709,10 @@ namespace MW {
     void Model::clean() {
         device->DestroyVulkanBuffer(vertices.buffer);
         device->DestroyVulkanBuffer(indices.buffer);
+#if USE_MESH_SHADER
         device->DestroyVulkanBuffer(meshBuffer.buffer);
         device->DestroyVulkanBuffer(vertexBuffer.buffer);
+#endif
         for (auto texture: textures) {
             texture.destroy();
         }
@@ -951,13 +953,18 @@ namespace MW {
                 newPrimitive->firstVertex = vertexStart;
                 newPrimitive->vertexCount = vertexCount;
                 newPrimitive->setDimensions(posMin, posMax);
+#if USE_MESH_SHADER
+                if(bUseMeshShader) {
+#if EXT_MESH_SHADER
+                    newPrimitive->offsetIndex = this->meshletsOffset.size();
+                    this->meshletsOffset.emplace_back(this->meshlets.size());
+#endif
+                    newPrimitive->addMeshlets(this->meshlets, indexBuffer);
+                }
+#endif
                 newMesh->primitives.push_back(newPrimitive);
             }
             newNode->mesh = newMesh;
-#if USE_MESH_SHADER
-            if(bUseMeshShader)
-                newMesh->addMeshlets(this->meshlets, indexBuffer);
-#endif
         }
         if (parent) {
             parent->children.push_back(newNode);
@@ -1531,8 +1538,12 @@ namespace MW {
                                                 bindImageSet, 1, &material.descriptorSet, 0, nullptr);
                     }
 #if USE_MESH_SHADER
-                    if (bUseMeshShader && node->mesh->meshletsCount > 0) {
-                        device->vkCmdDrawMeshTasksNV(commandBuffer, node->mesh->meshletsCount, node->mesh->firstMeshlet);
+                    if (bUseMeshShader && primitive->meshletsCount > 0) {
+#if NV_MESH_SHADER
+                        device->vkCmdDrawMeshTasksNV(commandBuffer, primitive->meshletsCount, primitive->firstMeshlet);
+#elif EXT_MESH_SHADER
+                        device->vkCmdDrawMeshTasksEXT(commandBuffer, node->mesh->meshletsCount, 1, 1);
+#endif
                     }
 #endif
                     if(!bUseMeshShader)
@@ -1701,51 +1712,52 @@ namespace MW {
 
 #if USE_MESH_SHADER
     // https://zhuanlan.zhihu.com/p/110404763
-    void Mesh::addMeshlets(std::vector<Meshlet> &meshlets, const std::vector<uint32_t> &indexBuffer) {
+    void Primitive::addMeshlets(std::vector<Meshlet> &meshlets, const std::vector<uint32_t> &indexBuffer) {
         firstMeshlet = meshlets.size();
-        for (auto &primitive: primitives) {
-            Meshlet meshlet = {};
-            std::vector<uint8_t> meshletVertices(primitive->indexCount, 0xff);
-            // 离散化
-            std::map<int, int> meshIndex2LocalIndex;
-            std::map<int, int> localIndex2MeshIndex;
-            std::vector<int> localIndices;
-            for (int i = primitive->firstIndex; i < primitive->firstIndex + primitive->indexCount; ++i) {
-                int id = indexBuffer[i];
-                if (meshIndex2LocalIndex.find(id) == meshIndex2LocalIndex.end()) {
-                    meshIndex2LocalIndex[id] = localIndices.size();
-                    localIndex2MeshIndex[localIndices.size()] = id;
-                    localIndices.emplace_back(id);
-                }
+//        for (auto &primitive: primitives) {
+        Meshlet meshlet = {};
+        std::vector<uint8_t> meshletVertices(indexCount, 0xff);
+        // 离散化
+        std::map<int, int> meshIndex2LocalIndex;
+        std::map<int, int> localIndex2MeshIndex;
+        std::vector<int> localIndices;
+        for (int i = firstIndex; i < firstIndex + indexCount; ++i) {
+            int id = indexBuffer[i];
+            if (meshIndex2LocalIndex.find(id) == meshIndex2LocalIndex.end()) {
+                meshIndex2LocalIndex[id] = localIndices.size();
+                localIndex2MeshIndex[localIndices.size()] = id;
+                localIndices.emplace_back(id);
             }
-            for (size_t i = primitive->firstIndex; i < primitive->firstIndex + primitive->indexCount; i += 3) {
-                unsigned int triangleIndices[3];
-                for (int j = 0; j < 3; ++j)
-                    triangleIndices[j] = meshIndex2LocalIndex[indexBuffer[i + j]];
-                uint8_t *meshletLocalIndex[3];
-                for (int j = 0; j < 3; ++j)
-                    meshletLocalIndex[j] = &meshletVertices[triangleIndices[j]];
-                uint32_t nowVertexCount = meshlet.vertexCount;
-                for (int j = 0; j < 3; ++j)
-                    nowVertexCount += (*meshletLocalIndex[j] == 0xff);
-                if (nowVertexCount > Meshlet::MAX_VERTICES ||
-                    meshlet.indexCount + 3 > Meshlet::MAX_INDICES) {
-                    meshlets.push_back(meshlet);
-                    for (size_t j = 0; j < meshlet.vertexCount; ++j)
-                        meshletVertices[meshIndex2LocalIndex[meshlet.vertices[j]]] = 0xff;
-                    meshlet = {};
-                }
-                for (int j = 0; j < 3; ++j) {
-                    if (*meshletLocalIndex[j] == 0xff) {
-                        *meshletLocalIndex[j] = meshlet.vertexCount;
-                        meshlet.vertices[meshlet.vertexCount++] = localIndex2MeshIndex[triangleIndices[j]];
-                    }
-                    meshlet.indices[meshlet.indexCount++] = *meshletLocalIndex[j];
-                }
-            }
-            if (meshlet.indexCount)
-                meshlets.push_back(meshlet);
         }
+        for (size_t i = firstIndex; i < firstIndex + indexCount; i += 3) {
+            unsigned int triangleIndices[3];
+            for (int j = 0; j < 3; ++j)
+                triangleIndices[j] = meshIndex2LocalIndex[indexBuffer[i + j]];
+            uint8_t *meshletLocalIndex[3];
+            for (int j = 0; j < 3; ++j)
+                meshletLocalIndex[j] = &meshletVertices[triangleIndices[j]];
+            uint32_t nowVertexCount = meshlet.vertexCount;
+            for (int j = 0; j < 3; ++j)
+                nowVertexCount += (*meshletLocalIndex[j] == 0xff);
+            if (nowVertexCount > Meshlet::MAX_VERTICES ||
+                meshlet.indexCount + 3 > Meshlet::MAX_INDICES) {
+                meshlets.push_back(meshlet);
+                for (size_t j = 0; j < meshlet.vertexCount; ++j)
+                    meshletVertices[meshIndex2LocalIndex[meshlet.vertices[j]]] = 0xff;
+                meshlet = {};
+            }
+            for (int j = 0; j < 3; ++j) {
+                if (*meshletLocalIndex[j] == 0xff) {
+                    *meshletLocalIndex[j] = meshlet.vertexCount;
+                    meshlet.vertices[meshlet.vertexCount++] = localIndex2MeshIndex[triangleIndices[j]];
+                }
+                meshlet.indices[meshlet.indexCount++] = *meshletLocalIndex[j];
+            }
+        }
+        if (meshlet.indexCount) {
+            meshlets.push_back(meshlet);
+        }
+//        }
         meshletsCount = meshlets.size() - firstMeshlet;
     }
 
