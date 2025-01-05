@@ -10,6 +10,9 @@ namespace MW {
 
     struct PushConstBlock {
         glm::vec3 position{0};
+#if USE_MESH_SHADER & EXT_MESH_SHADER
+        float meshletOffset{0};
+#endif
     };
 
     class SceneManager {

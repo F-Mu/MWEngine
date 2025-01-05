@@ -131,10 +131,15 @@ namespace MW
         uint32_t firstVertex;
         uint32_t vertexCount;
         Material& material;
+        struct PushConstantBlock{
+            glm::vec3 position;
+#if EXT_MESH_SHADER
+            uint32_t offsetIndex{0};
+#endif
+        }pushConstantBlock;
 #if USE_MESH_SHADER
         uint32_t firstMeshlet{0};
         uint32_t meshletsCount{0};
-        uint32_t offsetIndex{0};
         void addMeshlets(std::vector<Meshlet>&meshlets,const std::vector<uint32_t>&indexBuffer);
 #endif
         struct Dimensions {
@@ -317,10 +322,6 @@ namespace MW
             VulkanBuffer buffer;
             VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
         } meshBuffer, vertexBuffer;
-#if EXT_MESH_SHADER
-        StorageBuffer meshletsOffsetBuffer;
-        std::vector<uint32_t> meshletsOffset;
-#endif
         std::vector<Meshlet> meshlets;
         void createMeshletBuffer();
 #endif

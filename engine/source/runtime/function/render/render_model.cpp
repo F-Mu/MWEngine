@@ -956,8 +956,7 @@ namespace MW {
 #if USE_MESH_SHADER
                 if(bUseMeshShader) {
 #if EXT_MESH_SHADER
-                    newPrimitive->offsetIndex = this->meshletsOffset.size();
-                    this->meshletsOffset.emplace_back(this->meshlets.size());
+                    newPrimitive->pushConstantBlock.offsetIndex = this->meshlets.size();
 #endif
                     newPrimitive->addMeshlets(this->meshlets, indexBuffer);
                 }
@@ -1537,12 +1536,18 @@ namespace MW {
                         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout,
                                                 bindImageSet, 1, &material.descriptorSet, 0, nullptr);
                     }
+                    if(bUseMeshShader) { // 使用Mesh Shader情况下用自身的push constant
+                        vkCmdPushConstants(commandBuffer, pipelineLayout,
+                                           bUseMeshShader ? VK_SHADER_STAGE_MESH_BIT_NV : VK_SHADER_STAGE_VERTEX_BIT, 0,
+                                           sizeof(primitive->pushConstantBlock),
+                                           &primitive->pushConstantBlock);
+                    }
 #if USE_MESH_SHADER
                     if (bUseMeshShader && primitive->meshletsCount > 0) {
 #if NV_MESH_SHADER
                         device->vkCmdDrawMeshTasksNV(commandBuffer, primitive->meshletsCount, primitive->firstMeshlet);
 #elif EXT_MESH_SHADER
-                        device->vkCmdDrawMeshTasksEXT(commandBuffer, node->mesh->meshletsCount, 1, 1);
+                        device->vkCmdDrawMeshTasksEXT(commandBuffer, primitive->meshletsCount, 1, 1);
 #endif
                     }
 #endif

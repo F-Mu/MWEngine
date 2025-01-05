@@ -6,7 +6,7 @@ namespace MW {
                             uint32_t bindImageSet, PushConstBlock *pushConstant, uint32_t pushSize, bool bUseMeshShader) {
         for (int i = 0; i < models.size(); ++i) {
             auto &model = models[i];
-            if (pushConstant) {
+            if (!bUseMeshShader) { // 不使用mesh shader情况下直接这里绑定
                 pushConstant->position = modelPoss[i];
                 vkCmdPushConstants(commandBuffer, pipelineLayout,
                                    bUseMeshShader ? VK_SHADER_STAGE_MESH_BIT_NV : VK_SHADER_STAGE_VERTEX_BIT, 0,
@@ -31,7 +31,13 @@ namespace MW {
 #else
         models.emplace_back(std::make_shared<Model>());
 #endif
-        models.back()->loadFromFile(filename, device.get(), fileLoadingFlags, scale);
+        auto&model =models.back();
+        model->loadFromFile(filename, device.get(), fileLoadingFlags, scale);
+        for(auto&node:model->nodes){
+            for(auto&primitive:node->mesh->primitives){
+                primitive->pushConstantBlock.position = modelPos; // todo: 改成model矩阵
+            }
+        }
         modelPoss.emplace_back(modelPos);
     }
 
