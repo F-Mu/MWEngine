@@ -361,7 +361,7 @@ namespace MW {
         for (int i = 0; i < main_camera_g_buffer_type_count + main_camera_custom_type_count; ++i)
             clearColors[i] = {{0.0f, 0.0f, 0.0f, 1.0f}};
         clearColors[main_camera_depth].depthStencil = {1.0f, 0};
-        clearColors[main_camera_shading_rate_image] = {{10.0f, 10.0f, 10.0f, 10.0f}};
+        clearColors[main_camera_shading_rate_image] = {{0.0f, 0.0f, 0.0f, 10.0f}};
         clearColors[main_camera_swap_chain_image] = {{0.0f, 0.0f, 0.0f, 1.0f}};
         renderPassInfo.clearValueCount = clearColors.size();
         renderPassInfo.pClearValues = clearColors.data();
@@ -406,19 +406,19 @@ namespace MW {
         overlay->header("VRS Settings");
         if (overlay->comboBox("Pipeline Rate X", &shadingRateIndex.x, {"1", "2", "4"})) {
             if (shadingRateIndex.x == 0)
-                fragmentShadingRateSize.width = 1;
+                fragmentShadingRateSize.height = 1;
             else if (shadingRateIndex.x == 1)
-                fragmentShadingRateSize.width = 2;
+                fragmentShadingRateSize.height = 2;
             else if (shadingRateIndex.x == 2)
-                fragmentShadingRateSize.width = 4;
+                fragmentShadingRateSize.height = 4;
         }
         if (overlay->comboBox("Pipeline Rate Y", &shadingRateIndex.y, {"1", "2", "4"})) {
             if (shadingRateIndex.y == 0)
-                fragmentShadingRateSize.height = 1;
+                fragmentShadingRateSize.width = 1;
             else if (shadingRateIndex.y == 1)
-                fragmentShadingRateSize.height = 2;
+                fragmentShadingRateSize.width = 2;
             else if (shadingRateIndex.y == 2)
-                fragmentShadingRateSize.height = 4;
+                fragmentShadingRateSize.width = 4;
         }
         std::vector<std::string> combiners = {
                 "KEEP",
@@ -436,7 +436,7 @@ namespace MW {
         if (overlay->comboBox("Pipeline & Primitive", &shadingRateCombinerIndex.x, combiners)) {
             combinerOps[0] = static_cast<VkFragmentShadingRateCombinerOpKHR>(shadingRateCombinerIndex.x);
         }
-        if (overlay->comboBox("Pipeline & attachment", &shadingRateCombinerIndex.y, combiners)) {
+        if (overlay->comboBox("Pipeline & Attachment", &shadingRateCombinerIndex.y, combiners)) {
             combinerOps[1] = static_cast<VkFragmentShadingRateCombinerOpKHR>(shadingRateCombinerIndex.y);
         }
     }

@@ -1,6 +1,6 @@
 #version 460
-#define NV_MESH_SHADER 1
-#define EXT_MESH_SHADER 0
+#define NV_MESH_SHADER 0
+#define EXT_MESH_SHADER 1
 #if EXT_MESH_SHADER
 #extension GL_EXT_mesh_shader : require
 #elif NV_MESH_SHADER
@@ -138,7 +138,7 @@ void main()
     for (uint i = ti; i < uint(g_Meshlet.meshlets[mi].indexCount) / 3; i += 32)
     {
 #if EXT_MESH_SHADER
-        gl_MeshPrimitivesEXT[i].gl_PrimitiveShadingRateEXT = (4<<1)|(4>>1);
+        gl_MeshPrimitivesEXT[i].gl_PrimitiveShadingRateEXT = (4 << 1) | (4 >> 1);
 #endif
     }
 	if (ti == 0){

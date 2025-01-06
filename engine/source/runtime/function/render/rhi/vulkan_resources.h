@@ -2,8 +2,8 @@
 
 #define USE_MESH_SHADER 1
 #if USE_MESH_SHADER
-#define NV_MESH_SHADER 1
-#define EXT_MESH_SHADER 0
+#define NV_MESH_SHADER 0
+#define EXT_MESH_SHADER 1
 #endif
 #if !NV_MESH_SHADER && !EXT_MESH_SHADER
 #define USE_MESH_SHADER 0

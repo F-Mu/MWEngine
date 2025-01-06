@@ -1388,31 +1388,31 @@ namespace MW {
         }
         // Create a circular pattern from the available list of fragment shading rates with decreasing sampling rates outwards (max. range, pattern)
         // Shading rates returned by vkGetPhysicalDeviceFragmentShadingRatesKHR are ordered from largest to smallest
-//        std::map<float, uint8_t> patternLookup{};
-//        float range = 25.0f / static_cast<uint32_t>(fragmentShadingRates.size());
-//        float currentRange = 8.0f;
-//        for (size_t i = fragmentShadingRates.size() - 1; i > 0; i--) {
-//            uint32_t rate_v = fragmentShadingRates[i].fragmentSize.width >> 1;
-//            uint32_t rate_h = fragmentShadingRates[i].fragmentSize.height << 1;
-//            patternLookup[currentRange] = rate_v | rate_h;
-//            currentRange += range;
-//        }
-//
-//        uint8_t* ptrData = shadingRatePatternData;
-//        for (uint32_t y = 0; y < imageExtent.height; y++) {
-//            for (uint32_t x = 0; x < imageExtent.width; x++) {
-//                const float deltaX = (static_cast<float>(imageExtent.width) / 2.0f - static_cast<float>(x)) / imageExtent.width * 100.0f;
-//                const float deltaY = (static_cast<float>(imageExtent.height) / 2.0f - static_cast<float>(y)) / imageExtent.height * 100.0f;
-//                const float dist = std::sqrt(deltaX * deltaX + deltaY * deltaY);
-//                for (auto pattern : patternLookup) {
-//                    if (dist < pattern.first) {
-//                        *ptrData = pattern.second;
-//                        break;
-//                    }
-//                }
-//                ptrData++;
-//            }
-//        }
+        std::map<float, uint8_t> patternLookup{};
+        float range = 25.0f / static_cast<uint32_t>(fragmentShadingRates.size());
+        float currentRange = 8.0f;
+        for (size_t i = fragmentShadingRates.size() - 1; i > 0; i--) {
+            uint32_t rate_v = fragmentShadingRates[i].fragmentSize.width >> 1;
+            uint32_t rate_h = fragmentShadingRates[i].fragmentSize.height << 1;
+            patternLookup[currentRange] = rate_v | rate_h;
+            currentRange += range;
+        }
+
+        uint8_t* ptrData = shadingRatePatternData;
+        for (uint32_t y = 0; y < imageExtent.height; y++) {
+            for (uint32_t x = 0; x < imageExtent.width; x++) {
+                const float deltaX = (static_cast<float>(imageExtent.width) / 2.0f - static_cast<float>(x)) / imageExtent.width * 100.0f;
+                const float deltaY = (static_cast<float>(imageExtent.height) / 2.0f - static_cast<float>(y)) / imageExtent.height * 100.0f;
+                const float dist = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+                for (auto pattern : patternLookup) {
+                    if (dist < pattern.first) {
+                        *ptrData = pattern.second;
+                        break;
+                    }
+                }
+                ptrData++;
+            }
+        }
 
         // Copy the shading rate pattern to the shading rate image
 
