@@ -1,6 +1,6 @@
 #pragma once
 
-#include "runtime/function/render/pass/pass_base.h"
+#include "runtime/function/render/pass/pass_base/pass_base.h"
 #include "function/render/render_type.h"
 namespace MW {
     class CubePass;

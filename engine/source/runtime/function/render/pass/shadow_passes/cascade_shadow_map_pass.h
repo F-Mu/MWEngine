@@ -1,7 +1,7 @@
 #pragma once
 
 #include "depth_pass.h"
-#include "function/render/pass/pass_base.h"
+#include "runtime/function/render/pass/pass_base/pass_base.h"
 #include <array>
 
 namespace MW {

@@ -6,6 +6,7 @@
 #include "rhi/vulkan_device.h"
 #include "render_system.h"
 #include "pass/main_camera_pass.h"
+#include "pass/main_camera_pass2.h"
 #include "pass/ray_tracing_camera_pass.h"
 #include "render_resource.h"
 #include "render_camera.h"
@@ -39,7 +40,13 @@ namespace MW {
         RenderPassInitInfo passInfo;
         passInfo.device = device;
         passInfo.renderResource = renderResource;
+#if USE_VRS
+        mainCameraPass = std::make_shared<MainCameraPass2>();
+#elif USE_RAY_TRACING_SCENE
+        mainCameraPass = std::make_shared<RayTracingCameraPass>();
+#else
         mainCameraPass = std::make_shared<MainCameraPass>();
+#endif
         mainCameraPass->initialize(&passInfo);
     }
 

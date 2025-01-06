@@ -17,7 +17,7 @@
 #include <iomanip>
 
 #include <vulkan/vulkan.h>
-#include "runtime/function/render/pass/pass_base.h"
+#include "runtime/function/render/pass/pass_base/pass_base.h"
 #include "function/render/rhi/vulkan_device.h"
 #include "function/render/rhi/vulkan_resources.h"
 #include "function/render/rhi/vulkan_util.h"

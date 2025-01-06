@@ -1,5 +1,18 @@
 #pragma once
 
+#define USE_MESH_SHADER 1
+#if USE_MESH_SHADER
+#define NV_MESH_SHADER 1
+#define EXT_MESH_SHADER 0
+#endif
+#if !NV_MESH_SHADER && !EXT_MESH_SHADER
+#define USE_MESH_SHADER 0
+#endif
+#if NV_MESH_SHADER & EXT_MESH_SHADER
+#define USE_MESH_SHADER 0
+#endif
+#define USE_VRS 1
+#define USE_RAY_TRACING_SCENE 0
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <memory>
@@ -82,7 +95,14 @@ namespace MW {
         VkImageView depthImageView = VK_NULL_HANDLE;
         VkFormat depthImageFormat;
     };
-
+#if USE_VRS
+    struct VulkanShadingRateImageDesc {
+        VkExtent2D extent;
+        VkImage shadingRateImage = VK_NULL_HANDLE;
+        VkImageView shadingRateImageView = VK_NULL_HANDLE;
+        VkFormat shadingRateImageFormat;
+    };
+#endif
     struct RayTracingScratchBuffer {
         uint64_t deviceAddress = 0;
         VkBuffer handle = VK_NULL_HANDLE;

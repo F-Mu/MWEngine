@@ -1,6 +1,6 @@
 #pragma once
 
-#include "runtime/function/render/pass/g_buffer_pass.h"
+#include "g_buffer_pass.h"
 #include <array>
 
 #if USE_MESH_SHADER

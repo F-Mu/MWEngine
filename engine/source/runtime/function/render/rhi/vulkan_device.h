@@ -2,18 +2,6 @@
 #define NDEBUG
 #define GLFW_INCLUDE_VULKAN
 
-#define USE_MESH_SHADER 1
-#if USE_MESH_SHADER
-#define NV_MESH_SHADER 0
-#define EXT_MESH_SHADER 1
-#endif
-#if !NV_MESH_SHADER && !EXT_MESH_SHADER
-#define USE_MESH_SHADER 0
-#endif
-#if NV_MESH_SHADER & EXT_MESH_SHADER
-#define USE_MESH_SHADER 0
-#endif
-#define USE_VRS 0
 #include <GLFW/glfw3.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -417,6 +405,13 @@ namespace MW {
         VkImage depthImages = VK_NULL_HANDLE;
         VkDeviceMemory depthImageMemorys;
         VkImageView depthImageViews = VK_NULL_HANDLE;
+#if USE_VRS
+        VkExtent2D swapChainShadingRateExtent;
+        VkFormat swapChainShadingRateFormat;
+        VkImage shadingRateImages = VK_NULL_HANDLE;
+        VkDeviceMemory shadingRateImageMemorys;
+        VkImageView shadingRateImageViews = VK_NULL_HANDLE;
+#endif
         std::vector<VkImage> swapChainImages;
         std::vector<VkImageView> swapChainImageViews;
 
@@ -492,6 +487,17 @@ namespace MW {
 
         void createDepthResources();
 
+#if USE_VRS
+        void createShadingRateImage();
+
+        VulkanShadingRateImageDesc getShadingRateImageInfo();
+
+        void updateShadingRateImage();
+
+        void CreateRenderPass2KHR(const VkRenderPassCreateInfo2KHR *pCreateInfo, VkRenderPass *pRenderPass,
+                              const VkAllocationCallbacks *pAllocator = nullptr);
+#endif
+
         void createRenderPass();
 
         void createFramebuffers();
@@ -536,7 +542,7 @@ namespace MW {
         VkPhysicalDeviceMeshShaderPropertiesNV meshShaderProperties{};
         VkPhysicalDeviceMeshShaderFeaturesNV meshShaderFeatures{};
         VkPhysicalDeviceMeshShaderFeaturesNV enabledMeshShaderFeatures{};
-#elif EXT_MESH_SHADER
+#elif EXT_MESH_SHADER | 1
         VkPhysicalDeviceMeshShaderPropertiesEXT meshShaderProperties{};
         VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures{};
         VkPhysicalDeviceMeshShaderFeaturesEXT enabledMeshShaderFeatures{};

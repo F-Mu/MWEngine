@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pass_base.h"
+#include "runtime/function/render/pass/pass_base/pass_base.h"
 #include "function/render/render_model.h"
 #include "ui_pass/VulkanUIOverlay.h"
 
@@ -35,7 +35,7 @@ namespace MW {
 
         void processAfterPass();
 
-        void registerOnKeyFunc(const UIFunc& func) { UIFunctions.push_back(func); }
+        void registerOnUIFunc(const UIFunc& func) { UIFunctions.push_back(func); }
 
     protected:
         VulkanBuffer cameraUniformBuffer;
@@ -54,9 +54,7 @@ namespace MW {
         void createAttachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment);
 
         void createAttachments();
-#if USE_VRS
-        void createShadingRateImage();
-#endif
+
         virtual void OnUpdateUIOverlay(UIOverlay* overlay);
 
         virtual void createRenderPass();

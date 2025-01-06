@@ -36,6 +36,8 @@ vec3 prefilteredReflection(vec3 R, float roughness)
 
 void main()
 {
+    // outColor = subpassLoad(inputAlbedo);
+    // return;
     float depth = subpassLoad(inputDepth).r;
     if (depth == 1){
         outColor=vec4(1);

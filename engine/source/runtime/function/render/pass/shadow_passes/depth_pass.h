@@ -1,6 +1,6 @@
 #pragma once
 
-#include "runtime/function/render/pass/pass_base.h"
+#include "runtime/function/render/pass/pass_base/pass_base.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE

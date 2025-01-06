@@ -1,8 +1,4 @@
-#include <map>
-#include <stdexcept>
-#include <array>
-#include <iostream>
-#include "main_camera_pass.h"
+#include "main_camera_pass2.h"
 #include "runtime/function/render/pass/base_passes/mesh_base_pass.h"
 #include "function/render/render_resource.h"
 #include "shadow_passes/cascade_shadow_map_pass.h"
@@ -13,90 +9,20 @@
 #include "function/render/scene_manager.h"
 #include "function/input/input_system.h"
 #include "shading_pass.h"
-#include "scene_frag.h"
-#include "scene_vert.h"
 
 namespace MW {
-    extern VkDescriptorSetLayout descriptorSetLayoutImage;
-
-    void MainCameraPass::initialize(const RenderPassInitInfo *init_info) {
-        PassBase::initialize(init_info);
-        createAttachments();
-        createRenderPass();
-//        createUniformBuffer();
-//        createDescriptorSets();
-//        createPipelines();
-        createSwapchainFramebuffers();
-        /* 注意顺序,gBuffer中有global的descriptorSet */
-#if USE_MESH_SHADER
-        gBufferPass = std::make_shared<MeshBaseBufferPass>();
-#else
-        gBufferPass = std::make_shared<GBufferPass>();
-#endif
-        GBufferPassInitInfo gBufferInfo(init_info);
-        gBufferInfo.frameBuffer = &framebuffer;
-        gBufferPass->initialize(&gBufferInfo);
-
-        shadowMapPass = std::make_shared<DeferredCSMPass>();
-        CSMPassInitInfo csmInfo(init_info);
-        csmInfo.frameBuffer = &framebuffer;
-        shadowMapPass->initialize(&csmInfo);
-
-        ssaoPass = std::make_shared<SSAOPass>();
-        SSAOPassInitInfo ssaoInfo(init_info);
-        ssaoInfo.frameBuffer = &framebuffer;
-        ssaoPass->initialize(&ssaoInfo);
-
-        lightingPass = std::make_shared<PbrIblPass>();
-        PbrIblPassInitInfo pbrIblInfo(init_info);
-        pbrIblInfo.frameBuffer = &framebuffer;
-        lightingPass->initialize(&pbrIblInfo);
-
-        shadingPass = std::make_shared<ShadingPass>();
-        ShadingPassInitInfo shadingInfo(init_info);
-        shadingInfo.frameBuffer = &framebuffer;
-        shadingPass->initialize(&shadingInfo);
-
-        UIPass = std::make_shared<UIOverlay>();
-        UIPassInitInfo uiInfo(init_info);
-        uiInfo.renderPass = framebuffer.renderPass;
-        uiInfo.colorFormat = device->swapChainImageFormat;
-        uiInfo.depthFormat = device->swapChainDepthFormat;
-        uiInfo.queue = device->graphicsQueue;
-        UIPass->initialize(&uiInfo);
+#if USE_VRS
+    void MainCameraPass2::initialize(const RenderPassInitInfo *init_info) {
+        MainCameraPass::initialize(init_info);
+        registerOnUIFunc(std::bind(&MainCameraPass2::UpdateUIOverlay, this, std::placeholders::_1));
     }
 
-    void MainCameraPass::clean() {
-        UIPass->clean();
-        shadingPass->clean();
-        lightingPass->clean();
-        ssaoPass->clean();
-        shadowMapPass->clean();
-        gBufferPass->clean();
-
-        UIPass.reset();
-        shadingPass.reset();
-        lightingPass.reset();
-        ssaoPass.reset();
-        shadowMapPass.reset();
-        gBufferPass.reset();
-        for (size_t i = 0; i < framebuffer.attachments.size(); i++) {
-            device->DestroyImage(framebuffer.attachments[i].image);
-            device->DestroyImageView(framebuffer.attachments[i].view);
-            device->FreeMemory(framebuffer.attachments[i].mem);
-        }
-        device->DestroyRenderPass(framebuffer.renderPass);
-        for (auto framebuffer: swapChainFramebuffers) {
-            device->DestroyFramebuffer(framebuffer);
-        }
-        PassBase::clean();
-    }
-
-    void MainCameraPass::createRenderPass() {
-        std::array<VkAttachmentDescription, main_camera_type_count> attachments{};
+    void MainCameraPass2::createRenderPass() {
+        std::array<VkAttachmentDescription2KHR, main_camera_type_count> attachments{};
 
         /* 假设所有attachment的部分格式是一样的 */
         for (auto &attachmentDesc: attachments) {
+            attachmentDesc.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2_KHR;
             attachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
             attachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
             attachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -110,7 +36,7 @@ namespace MW {
             attachments[i].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         }
 
-        VkAttachmentDescription &depthAttachment = attachments[main_camera_depth];
+        VkAttachmentDescription2KHR &depthAttachment = attachments[main_camera_depth];
         depthAttachment.format = device->getDepthImageInfo().depthImageFormat;
         depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -120,7 +46,7 @@ namespace MW {
         depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-        VkAttachmentDescription &colorAttachment = attachments[main_camera_swap_chain_image];
+        VkAttachmentDescription2KHR &colorAttachment = attachments[main_camera_swap_chain_image];
         colorAttachment.format = device->getSwapchainInfo().imageFormat;
         colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -130,10 +56,38 @@ namespace MW {
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-        std::array<VkSubpassDescription, main_camera_subpass_count> subpassDescs{};
+        VkAttachmentDescription2KHR &shadingRateAttachment = attachments[main_camera_shading_rate_image];
+        shadingRateAttachment.format = device->getShadingRateImageInfo().shadingRateImageFormat;
+        shadingRateAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        shadingRateAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        shadingRateAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        shadingRateAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        shadingRateAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        shadingRateAttachment.initialLayout = VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
+        shadingRateAttachment.finalLayout = VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
+
+        // Setup the attachment reference for the shading rate image attachment in slot 2
+        VkAttachmentReference2KHR fragmentShadingRateReference{};
+        fragmentShadingRateReference.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+        fragmentShadingRateReference.attachment = main_camera_shading_rate_image;
+        fragmentShadingRateReference.layout = VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR;
+
+        // Setup the attachment info for the shading rate image, which will be added to the sub pass via structure chaining (in pNext)
+        VkFragmentShadingRateAttachmentInfoKHR fragmentShadingRateAttachmentInfo{};
+        fragmentShadingRateAttachmentInfo.sType = VK_STRUCTURE_TYPE_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR;
+        fragmentShadingRateAttachmentInfo.pFragmentShadingRateAttachment = &fragmentShadingRateReference;
+        fragmentShadingRateAttachmentInfo.shadingRateAttachmentTexelSize.width = device->physicalDeviceShadingRateImageProperties.maxFragmentShadingRateAttachmentTexelSize.width;
+        fragmentShadingRateAttachmentInfo.shadingRateAttachmentTexelSize.height = device->physicalDeviceShadingRateImageProperties.maxFragmentShadingRateAttachmentTexelSize.height;
+
+        std::array<VkSubpassDescription2KHR, main_camera_subpass_count> subpassDescs{};
+        for (auto &description: subpassDescs) {
+            description.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
+            description.pNext = &fragmentShadingRateAttachmentInfo;
+        }
         {
             // Create G-Buffer SubPass;
-            std::array<VkAttachmentReference, 4> gBufferAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 4> gBufferAttachmentReferences{};
+            setupAttachment2KHRType(gBufferAttachmentReferences);
             gBufferAttachmentReferences[g_buffer_material].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             gBufferAttachmentReferences[g_buffer_material].attachment = g_buffer_material;
             gBufferAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -143,9 +97,11 @@ namespace MW {
             gBufferAttachmentReferences[g_buffer_view_position].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             gBufferAttachmentReferences[g_buffer_view_position].attachment = g_buffer_view_position;
 
-            VkAttachmentReference depthAttachmentReference{};
+            VkAttachmentReference2KHR depthAttachmentReference{};
+            depthAttachmentReference.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2_KHR;
             depthAttachmentReference.attachment = main_camera_depth;
             depthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            depthAttachmentReference.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
             subpassDescs[main_camera_subpass_g_buffer_pass].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
             subpassDescs[main_camera_subpass_g_buffer_pass].colorAttachmentCount = gBufferAttachmentReferences.size();
             subpassDescs[main_camera_subpass_g_buffer_pass].pColorAttachments = gBufferAttachmentReferences.data();
@@ -153,7 +109,8 @@ namespace MW {
         }
         {
             // Create CSM SubPass;
-            std::array<VkAttachmentReference, 5> ScreenSpaceInputAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 5> ScreenSpaceInputAttachmentReferences{};
+            setupAttachment2KHRType(ScreenSpaceInputAttachmentReferences);
             ScreenSpaceInputAttachmentReferences[g_buffer_material].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             ScreenSpaceInputAttachmentReferences[g_buffer_material].attachment = g_buffer_material;
             ScreenSpaceInputAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -164,8 +121,10 @@ namespace MW {
             ScreenSpaceInputAttachmentReferences[g_buffer_view_position].attachment = g_buffer_view_position;
             ScreenSpaceInputAttachmentReferences[4].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             ScreenSpaceInputAttachmentReferences[4].attachment = main_camera_depth;
+            ScreenSpaceInputAttachmentReferences[4].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-            std::array<VkAttachmentReference, 1> CSMOutputAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 1> CSMOutputAttachmentReferences{};
+            setupAttachment2KHRType(CSMOutputAttachmentReferences);
             CSMOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             CSMOutputAttachmentReferences[0].attachment = main_camera_shadow;
 
@@ -177,13 +136,15 @@ namespace MW {
         }
         {
             // Create SSAO SubPass;
-            std::array<VkAttachmentReference, 2> SSAOInputAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 2> SSAOInputAttachmentReferences{};
+            setupAttachment2KHRType(SSAOInputAttachmentReferences);
             SSAOInputAttachmentReferences[g_buffer_material].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             SSAOInputAttachmentReferences[g_buffer_material].attachment = g_buffer_material;
             SSAOInputAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             SSAOInputAttachmentReferences[g_buffer_normal].attachment = g_buffer_normal;
 
-            std::array<VkAttachmentReference, 1> SSAOOutputAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 1> SSAOOutputAttachmentReferences{};
+            setupAttachment2KHRType(SSAOOutputAttachmentReferences);
             SSAOOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             SSAOOutputAttachmentReferences[0].attachment = main_camera_ao;
 
@@ -196,7 +157,8 @@ namespace MW {
         {
             // Create Lighting SubPass;
             // TODO:FIX
-            std::array<VkAttachmentReference, 5> LightingInputAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 5> LightingInputAttachmentReferences{};
+            setupAttachment2KHRType(LightingInputAttachmentReferences);
             LightingInputAttachmentReferences[g_buffer_material].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             LightingInputAttachmentReferences[g_buffer_material].attachment = g_buffer_material;
             LightingInputAttachmentReferences[g_buffer_normal].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -207,8 +169,10 @@ namespace MW {
             LightingInputAttachmentReferences[g_buffer_view_position].attachment = g_buffer_view_position;
             LightingInputAttachmentReferences[4].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             LightingInputAttachmentReferences[4].attachment = main_camera_depth;
+            LightingInputAttachmentReferences[4].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-            std::array<VkAttachmentReference, 1> LightingOutputAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 1> LightingOutputAttachmentReferences{};
+            setupAttachment2KHRType(LightingOutputAttachmentReferences);
             LightingOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             LightingOutputAttachmentReferences[0].attachment = main_camera_lighting;
 
@@ -220,7 +184,8 @@ namespace MW {
         }
         {
             // Create Shading SubPass;
-            std::array<VkAttachmentReference, 3> ShadingInputAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 3> ShadingInputAttachmentReferences{};
+            setupAttachment2KHRType(ShadingInputAttachmentReferences);
             ShadingInputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             ShadingInputAttachmentReferences[0].attachment = main_camera_shadow;
             ShadingInputAttachmentReferences[1].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -228,7 +193,8 @@ namespace MW {
             ShadingInputAttachmentReferences[2].layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             ShadingInputAttachmentReferences[2].attachment = main_camera_lighting;
 
-            std::array<VkAttachmentReference, 1> ShadingOutputAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 1> ShadingOutputAttachmentReferences{};
+            setupAttachment2KHRType(ShadingOutputAttachmentReferences);
             ShadingOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             ShadingOutputAttachmentReferences[0].attachment = main_camera_swap_chain_image;
             subpassDescs[main_camera_subpass_shading_pass].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -239,14 +205,18 @@ namespace MW {
         }
         {
             // Create UI SubPass;
-            std::array<VkAttachmentReference, 1> UIOutputAttachmentReferences{};
+            std::array<VkAttachmentReference2KHR, 1> UIOutputAttachmentReferences{};
+            setupAttachment2KHRType(UIOutputAttachmentReferences);
             UIOutputAttachmentReferences[0].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             UIOutputAttachmentReferences[0].attachment = main_camera_swap_chain_image;
             subpassDescs[main_camera_subpass_ui_pass].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
             subpassDescs[main_camera_subpass_ui_pass].colorAttachmentCount = UIOutputAttachmentReferences.size();
             subpassDescs[main_camera_subpass_ui_pass].pColorAttachments = UIOutputAttachmentReferences.data();
+            subpassDescs[main_camera_subpass_ui_pass].pNext = VK_NULL_HANDLE;
         }
-        std::array<VkSubpassDependency, 8> dependencies = {};
+        std::array<VkSubpassDependency2KHR, 8> dependencies = {};
+        for (auto &dependency: dependencies)
+            dependency.sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
         dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
         dependencies[0].dstSubpass = main_camera_subpass_g_buffer_pass;
         dependencies[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -326,8 +296,8 @@ namespace MW {
         dependencies[7].dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
         dependencies[7].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-        VkRenderPassCreateInfo renderPassInfo = {};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        VkRenderPassCreateInfo2KHR renderPassInfo = {};
+        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
         renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
         renderPassInfo.pAttachments = attachments.data();
         renderPassInfo.subpassCount = subpassDescs.size();
@@ -335,61 +305,10 @@ namespace MW {
         renderPassInfo.dependencyCount = dependencies.size();
         renderPassInfo.pDependencies = dependencies.data();
 
-        device->CreateRenderPass(&renderPassInfo, &framebuffer.renderPass);
+        device->CreateRenderPass2KHR(&renderPassInfo, &framebuffer.renderPass);
     }
 
-    void MainCameraPass::createUniformBuffer() {
-        device->CreateBuffer(
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                cameraUniformBuffer,
-                sizeof(renderResource->cameraObject),
-                &renderResource->cameraObject);
-        device->MapMemory(cameraUniformBuffer);
-
-        updateCamera();
-    }
-
-    void MainCameraPass::createDescriptorSets() {
-        descriptors.resize(1);
-        {
-            VkDescriptorSetLayoutBinding layoutBinding{};
-            layoutBinding.binding = 0;
-            layoutBinding.descriptorCount = 1;
-            layoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            layoutBinding.pImmutableSamplers = nullptr;
-            layoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-            VkDescriptorSetLayoutCreateInfo layoutInfo{};
-            layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            layoutInfo.bindingCount = 1;
-            layoutInfo.pBindings = &layoutBinding;
-            device->CreateDescriptorSetLayout(&layoutInfo, &descriptors[0].layout);
-        }
-
-        {
-            device->CreateDescriptorSet(1, descriptors[0].layout, descriptors[0].descriptorSet);
-
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = cameraUniformBuffer.buffer;
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(CameraObject);
-
-            VkWriteDescriptorSet descriptorWrite{};
-            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrite.dstSet = descriptors[0].descriptorSet;
-            descriptorWrite.dstBinding = 0;
-            descriptorWrite.dstArrayElement = 0;
-            descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            descriptorWrite.descriptorCount = 1;
-            descriptorWrite.pBufferInfo = &bufferInfo;
-
-            device->UpdateDescriptorSets(1, &descriptorWrite);
-        }
-
-    }
-
-    void MainCameraPass::createSwapchainFramebuffers() {
+    void MainCameraPass2::createSwapchainFramebuffers() {
         swapChainFramebuffers.resize(device->imageCount());
 
         for (size_t i = 0; i < swapChainFramebuffers.size(); i++) {
@@ -402,6 +321,7 @@ namespace MW {
                     framebuffer.attachments[main_camera_ao].view,
                     framebuffer.attachments[main_camera_lighting].view,
                     device->getDepthImageInfo().depthImageView,
+                    device->getShadingRateImageInfo().shadingRateImageView,
                     device->getSwapchainInfo().imageViews[i]
             };
 
@@ -419,7 +339,15 @@ namespace MW {
         }
     }
 
-    void MainCameraPass::draw() {
+    template<size_t N>
+    void MainCameraPass2::setupAttachment2KHRType(std::array<VkAttachmentReference2KHR, N> &attachmentReferences) {
+        for (auto &reference: attachmentReferences) {
+            reference.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+            reference.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+    }
+
+    void MainCameraPass2::draw() {
         shadowMapPass->drawDepth();
         VkRenderPassBeginInfo renderPassInfo{};
         renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -433,7 +361,8 @@ namespace MW {
         for (int i = 0; i < main_camera_g_buffer_type_count + main_camera_custom_type_count; ++i)
             clearColors[i] = {{0.0f, 0.0f, 0.0f, 1.0f}};
         clearColors[main_camera_depth].depthStencil = {1.0f, 0};
-        clearColors[main_camera_swap_chain_image] = {{0.0f, 0.0f, 0.2f, 1.0f}};
+        clearColors[main_camera_shading_rate_image] = {{10.0f, 10.0f, 10.0f, 10.0f}};
+        clearColors[main_camera_swap_chain_image] = {{0.0f, 0.0f, 0.0f, 1.0f}};
         renderPassInfo.clearValueCount = clearColors.size();
         renderPassInfo.pClearValues = clearColors.data();
 
@@ -450,6 +379,9 @@ namespace MW {
 
         vkCmdSetScissor(device->getCurrentCommandBuffer(), 0, 1, device->getSwapchainInfo().scissor);
 
+        device->vkCmdSetFragmentShadingRateKHR(device->getCurrentCommandBuffer(), &fragmentShadingRateSize,
+                                               combinerOps);
+
         gBufferPass->draw();
 
         vkCmdNextSubpass(device->getCurrentCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
@@ -465,188 +397,49 @@ namespace MW {
         vkCmdNextSubpass(device->getCurrentCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
 
         shadingPass->draw();
-        // Bind scene matrices descriptor to set 0
-//        vkCmdBindPipeline(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].pipeline);
-//
-//        vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
-//                                0, 1, &descriptors[0].descriptorSet, 0, nullptr);
-//
-//        engineGlobalContext.getScene()->draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages,
-//                                               pipelines[0].layout, 1);
-//        scene.draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages, pipelines[0].layout, 1);
-//        vkCmdDraw(device->getCurrentCommandBuffer(), 3, 1, 0, 0);
         vkCmdNextSubpass(device->getCurrentCommandBuffer(), VK_SUBPASS_CONTENTS_INLINE);
         drawUI(device->getCurrentCommandBuffer());
         vkCmdEndRenderPass(device->getCurrentCommandBuffer());
     }
 
-    void MainCameraPass::updateAfterFramebufferRecreate() {
-        for (size_t i = 0; i < framebuffer.attachments.size(); i++) {
-            device->DestroyImage(framebuffer.attachments[i].image);
-            device->DestroyImageView(framebuffer.attachments[i].view);
-            device->FreeMemory(framebuffer.attachments[i].mem);
+    void MainCameraPass2::UpdateUIOverlay(UIOverlay *overlay) {
+        overlay->header("VRS Settings");
+        if (overlay->comboBox("Pipeline Rate X", &shadingRateIndex.x, {"1", "2", "4"})) {
+            if (shadingRateIndex.x == 0)
+                fragmentShadingRateSize.width = 1;
+            else if (shadingRateIndex.x == 1)
+                fragmentShadingRateSize.width = 2;
+            else if (shadingRateIndex.x == 2)
+                fragmentShadingRateSize.width = 4;
         }
-
-        for (auto framebuffer: swapChainFramebuffers) {
-            device->DestroyFramebuffer(framebuffer);
+        if (overlay->comboBox("Pipeline Rate Y", &shadingRateIndex.y, {"1", "2", "4"})) {
+            if (shadingRateIndex.y == 0)
+                fragmentShadingRateSize.height = 1;
+            else if (shadingRateIndex.y == 1)
+                fragmentShadingRateSize.height = 2;
+            else if (shadingRateIndex.y == 2)
+                fragmentShadingRateSize.height = 4;
         }
-        createAttachments();
-        createSwapchainFramebuffers();
-        gBufferPass->updateAfterFramebufferRecreate();
-        shadowMapPass->updateAfterFramebufferRecreate();
-        ssaoPass->updateAfterFramebufferRecreate();
-        lightingPass->updateAfterFramebufferRecreate();
-    }
+        std::vector<std::string> combiners = {
+                "KEEP",
+                "REPLACE",
+                "MIN",
+                "MAX",
+                "MUL"
+        };
+        // If shading rate from attachment is enabled, we set the combiner, so that the values from the attachment are used
+        // Combiner for pipeline (A) and primitive (B) - Not used in this sample
+//        combinerOps[0] = VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR;
+        // Combiner for pipeline (A) and attachment (B), replace the pipeline default value (fragment_size) with the fragment sizes stored in the attachment
+//        combinerOps[1] = VK_FRAGMENT_SHADING_RATE_COMBINER_OP_REPLACE_KHR;
 
-    void MainCameraPass::updateCamera() {
-        memcpy(cameraUniformBuffer.mapped, &renderResource->cameraObject, sizeof(renderResource->cameraObject));
-    }
-
-    void MainCameraPass::preparePassData() {
-//        updateCamera();
-        gBufferPass->preparePassData();
-        shadowMapPass->preparePassData();
-        ssaoPass->preparePassData();
-        lightingPass->preparePassData();
-        shadingPass->preparePassData();
-    }
-
-    void MainCameraPass::loadModel() {
-        const uint32_t glTFLoadingFlags =
-//                FileLoadingFlags::PreTransformVertices | FileLoadingFlags::PreMultiplyVertexColors |
-                FileLoadingFlags::PreTransformVertices |
-                FileLoadingFlags::FlipY;
-        scene.loadFromFile(getAssetPath() + "models/sponza/sponza.gltf", device.get(), glTFLoadingFlags);
-    }
-
-    void MainCameraPass::createAttachment(VkFormat format, VkImageUsageFlagBits usage,
-                                          FrameBufferAttachment *attachment) {
-        VkImageAspectFlags aspectMask = 0;
-        attachment->format = format;
-        if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
-            aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        if (overlay->comboBox("Pipeline & Primitive", &shadingRateCombinerIndex.x, combiners)) {
+            combinerOps[0] = static_cast<VkFragmentShadingRateCombinerOpKHR>(shadingRateCombinerIndex.x);
         }
-        if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-            aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-            if (format >= VK_FORMAT_D16_UNORM_S8_UINT)
-                aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        if (overlay->comboBox("Pipeline & attachment", &shadingRateCombinerIndex.y, combiners)) {
+            combinerOps[1] = static_cast<VkFragmentShadingRateCombinerOpKHR>(shadingRateCombinerIndex.y);
         }
-
-        assert(aspectMask > 0);
-        VkImageCreateInfo imageInfo{};
-        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.extent.width = device->getSwapchainInfo().extent.width;
-        imageInfo.extent.height = device->getSwapchainInfo().extent.height;
-        imageInfo.extent.depth = 1;
-        imageInfo.mipLevels = 1;
-        imageInfo.arrayLayers = 1;
-        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        imageInfo.format = format;
-        imageInfo.usage = usage | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        device->CreateImageWithInfo(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, attachment->image, attachment->mem);
-
-        VkImageViewCreateInfo viewInfo{};
-        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = format;
-        viewInfo.subresourceRange = {};
-        viewInfo.subresourceRange.aspectMask = aspectMask;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
-        viewInfo.image = attachment->image;
-        device->CreateImageView(&viewInfo, &attachment->view);
     }
 
-    void MainCameraPass::createAttachments() {
-        framebuffer.attachments.resize(main_camera_g_buffer_type_count + main_camera_custom_type_count);
-        // World space position
-        createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                         &framebuffer.attachments[g_buffer_material]);
-
-        // (World space) Normals
-        createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                         &framebuffer.attachments[g_buffer_normal]);
-
-        // Albedo (color)
-        createAttachment(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                         &framebuffer.attachments[g_buffer_albedo]);
-
-        // Camera space position
-        createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                         &framebuffer.attachments[g_buffer_view_position]);
-
-        // Shadow (color)
-        createAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                         &framebuffer.attachments[main_camera_shadow]);
-
-        // SSAO (color)
-        createAttachment(VK_FORMAT_R8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                         &framebuffer.attachments[main_camera_ao]);
-        // IBL (color)
-        createAttachment(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                         &framebuffer.attachments[main_camera_lighting]);
-    }
-
-    void MainCameraPass::drawUI(const VkCommandBuffer commandBuffer) {
-//        VkViewport viewport{};
-//        viewport.x = 0.0f;
-//        viewport.y = 0.0f;
-//        viewport.width = (float) device->getSwapchainInfo().extent.width;
-//        viewport.height = (float) device->getSwapchainInfo().extent.height;
-//        viewport.minDepth = 0.0f;
-//        viewport.maxDepth = 1.0f;
-//        vkCmdSetViewport(device->getCurrentCommandBuffer(), 0, 1, &viewport);
-//        vkCmdSetScissor(device->getCurrentCommandBuffer(), 0, 1, device->getSwapchainInfo().scissor);
-        UIPass->draw(commandBuffer);
-    }
-
-    void MainCameraPass::updateOverlay(float delta_time) {
-        // The overlay does not need to be updated with each frame, so we limit the update rate
-        // Not only does this save performance but it also makes display of fast changig values like fps more stable
-        UIPass->updateTimer -= delta_time;
-        if (UIPass->updateTimer >= 0.0f) {
-            return;
-        }
-        // Update at max. rate of 30 fps
-        UIPass->updateTimer = 1.0f / 30.0f;
-
-        ImGuiIO &io = ImGui::GetIO();
-        io.DisplaySize = ImVec2((float) device->getSwapchainInfo().extent.width,
-                                (float) device->getSwapchainInfo().extent.height);
-        io.DeltaTime = delta_time;
-
-        auto mouseState = engineGlobalContext.inputSystem->getMouseState();
-        io.MousePos = ImVec2(mouseState.position.x, mouseState.position.y);
-        io.MouseDown[0] = mouseState.buttons.left;
-        io.MouseDown[1] = mouseState.buttons.right;
-        io.MouseDown[2] = mouseState.buttons.middle;
-
-        ImGui::NewFrame();
-
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-        ImGui::Begin("MW Engine", nullptr,
-                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-        ImGui::TextUnformatted(device->properties.deviceName);
-        ImGui::PushItemWidth(110.0f * UIPass->scale);
-        OnUpdateUIOverlay(UIPass.get());
-        ImGui::PopItemWidth();
-
-        ImGui::End();
-        ImGui::PopStyleVar();
-        ImGui::Render();
-        UIPass->update();
-    }
-
-    void MainCameraPass::processAfterPass() {
-        UIPass->update();
-    }
-
-    void MainCameraPass::OnUpdateUIOverlay(UIOverlay *overlay) {
-        for (const auto &func: UIFunctions)
-            func(overlay);
-    }
-}
+#endif
+} // MW

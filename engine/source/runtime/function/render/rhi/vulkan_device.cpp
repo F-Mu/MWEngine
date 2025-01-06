@@ -105,14 +105,17 @@ namespace MW {
         pickPhysicalDevice();
         getEnabledFeatures();
         CreateLogicalDevice();
+        findFunctionRequired();
         CreateCommandPool();
         CreateCommandBuffers();
         CreateDescriptorPool();
         createSwapChain();
         createSwapChainImageViews();
         createDepthResources();
+#if USE_VRS
+        createShadingRateImage();
+#endif
         createSyncObjects();
-        findFunctionRequired();
     }
 
     void VulkanDevice::clean() {
@@ -132,10 +135,15 @@ namespace MW {
         DestroyImageView(depthImageViews);
         DestroyImage(depthImages);
         FreeMemory(depthImageMemorys);
-        for (auto imageView: swapChainImageViews) {
-            DestroyImageView(imageView);
+#if USE_VRS
+        DestroyImageView(shadingRateImageViews);
+        DestroyImage(shadingRateImages);
+        FreeMemory(shadingRateImageMemorys);
+#endif
+        for (int i = 0; i < swapChainImages.size(); ++i) {
+            DestroyImageView(swapChainImageViews[i]);
+//            DestroyImage(swapChainImages[i]);
         }
-        swapChainImageViews.clear();
 
         if (swapChain != nullptr) {
             DestroySwapchainKHR(swapChain);
@@ -311,6 +319,10 @@ namespace MW {
 
 #if USE_MESH_SHADER
         deviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+#endif
+#if USE_VRS
+        deviceExtensions.push_back(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME);
+        deviceExtensions.push_back(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
 #endif
 
         queueIndices = findQueueFamilies(physicalDevice);
@@ -879,16 +891,24 @@ namespace MW {
         vkWaitForFences(device, MAX_FRAMES_IN_FLIGHT, inFlightFences, VK_TRUE, UINT64_MAX);
 
         DestroyImageView(depthImageViews);
-        vkDestroyImage(device, depthImages, NULL);
-        vkFreeMemory(device, depthImageMemorys, NULL);
-
-        for (auto imageview: swapChainImageViews) {
-            vkDestroyImageView(device, imageview, NULL);
+        DestroyImage(depthImages);
+        FreeMemory(depthImageMemorys);
+#if USE_VRS
+        DestroyImageView(shadingRateImageViews);
+        DestroyImage(shadingRateImages);
+        FreeMemory(shadingRateImageMemorys);
+#endif
+        for (int i = 0; i < swapChainImageViews.size(); ++i) {
+            DestroyImageView(swapChainImageViews[i]);
+//            DestroyImage(swapChainImages[i]);
         }
         vkDestroySwapchainKHR(device, swapChain, NULL);
 
         createSwapChain();
         createSwapChainImageViews();
+#if USE_VRS
+        createShadingRateImage();
+#endif
         createDepthResources();
     }
 
@@ -1324,6 +1344,119 @@ namespace MW {
         return desc;
     }
 
+#if USE_VRS
+    void VulkanDevice::CreateRenderPass2KHR(const VkRenderPassCreateInfo2KHR *pCreateInfo, VkRenderPass *pRenderPass,
+                                        const VkAllocationCallbacks *pAllocator) {
+        VK_CHECK_RESULT(vkCreateRenderPass2KHR(device, pCreateInfo, pAllocator, pRenderPass));
+
+    }
+
+    VulkanShadingRateImageDesc VulkanDevice::getShadingRateImageInfo() {
+        VulkanShadingRateImageDesc desc;
+        desc.shadingRateImage = shadingRateImages;
+        desc.shadingRateImageView = shadingRateImageViews;
+        desc.extent = swapChainShadingRateExtent;
+        desc.shadingRateImageFormat = swapChainShadingRateFormat;
+        return desc;
+    }
+
+    void VulkanDevice::updateShadingRateImage() {
+        const auto &imageExtent = swapChainShadingRateExtent;
+// The shading rates are stored in a buffer that'll be copied to the shading rate image
+        VkDeviceSize bufferSize = imageExtent.width * imageExtent.height * sizeof(uint8_t);
+
+        // Fragment sizes are encoded in a single texel as follows:
+        // size(w) = 2^((texel/4) & 3)
+        // size(h) = 2^(texel & 3)
+
+        // Populate it with the lowest possible shading rate
+        uint8_t  val = (4 >> 1) | (4 << 1);
+        uint8_t* shadingRatePatternData = new uint8_t[bufferSize];
+        memset(shadingRatePatternData, val, bufferSize);
+
+        // Get a list of available shading rate patterns
+        std::vector<VkPhysicalDeviceFragmentShadingRateKHR> fragmentShadingRates{};
+        uint32_t fragmentShadingRatesCount = 0;
+        vkGetPhysicalDeviceFragmentShadingRatesKHR(physicalDevice, &fragmentShadingRatesCount, nullptr);
+        if (fragmentShadingRatesCount > 0) {
+            fragmentShadingRates.resize(fragmentShadingRatesCount);
+            for (VkPhysicalDeviceFragmentShadingRateKHR& fragmentShadingRate : fragmentShadingRates) {
+                // In addition to the value, we also need to set the sType for each rate to comply with the spec or else the call to vkGetPhysicalDeviceFragmentShadingRatesKHR will result in undefined behaviour
+                fragmentShadingRate.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_KHR;
+            }
+            vkGetPhysicalDeviceFragmentShadingRatesKHR(physicalDevice, &fragmentShadingRatesCount, fragmentShadingRates.data());
+        }
+        // Create a circular pattern from the available list of fragment shading rates with decreasing sampling rates outwards (max. range, pattern)
+        // Shading rates returned by vkGetPhysicalDeviceFragmentShadingRatesKHR are ordered from largest to smallest
+//        std::map<float, uint8_t> patternLookup{};
+//        float range = 25.0f / static_cast<uint32_t>(fragmentShadingRates.size());
+//        float currentRange = 8.0f;
+//        for (size_t i = fragmentShadingRates.size() - 1; i > 0; i--) {
+//            uint32_t rate_v = fragmentShadingRates[i].fragmentSize.width >> 1;
+//            uint32_t rate_h = fragmentShadingRates[i].fragmentSize.height << 1;
+//            patternLookup[currentRange] = rate_v | rate_h;
+//            currentRange += range;
+//        }
+//
+//        uint8_t* ptrData = shadingRatePatternData;
+//        for (uint32_t y = 0; y < imageExtent.height; y++) {
+//            for (uint32_t x = 0; x < imageExtent.width; x++) {
+//                const float deltaX = (static_cast<float>(imageExtent.width) / 2.0f - static_cast<float>(x)) / imageExtent.width * 100.0f;
+//                const float deltaY = (static_cast<float>(imageExtent.height) / 2.0f - static_cast<float>(y)) / imageExtent.height * 100.0f;
+//                const float dist = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+//                for (auto pattern : patternLookup) {
+//                    if (dist < pattern.first) {
+//                        *ptrData = pattern.second;
+//                        break;
+//                    }
+//                }
+//                ptrData++;
+//            }
+//        }
+
+        // Copy the shading rate pattern to the shading rate image
+
+        VulkanBuffer stagingBuffer;
+        CreateBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                             stagingBuffer, bufferSize);
+
+        MapMemory(stagingBuffer);
+        memcpy(stagingBuffer.mapped, shadingRatePatternData, bufferSize);
+        unMapMemory(stagingBuffer);
+        delete[] shadingRatePatternData;
+
+        // Upload
+        VkCommandBuffer copyCmd = beginSingleTimeCommands();
+        VkImageSubresourceRange subresourceRange = {};
+        subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        subresourceRange.levelCount = 1;
+        subresourceRange.layerCount = 1;
+        transitionImageLayout(
+                copyCmd,
+                shadingRateImages,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                subresourceRange);
+        VkBufferImageCopy bufferCopyRegion{};
+        bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        bufferCopyRegion.imageSubresource.layerCount = 1;
+        bufferCopyRegion.imageExtent.width = imageExtent.width;
+        bufferCopyRegion.imageExtent.height = imageExtent.height;
+        bufferCopyRegion.imageExtent.depth = 1;
+        vkCmdCopyBufferToImage(copyCmd, stagingBuffer.buffer, shadingRateImages, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufferCopyRegion);
+        transitionImageLayout(
+                copyCmd,
+                shadingRateImages,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR,
+                subresourceRange);
+
+        endSingleTimeCommands(copyCmd);
+        DestroyVulkanBuffer(stagingBuffer);
+    }
+#endif
+
     void VulkanDevice::createDepthResources() {
         VkFormat depthFormat = findDepthFormat();
         swapChainDepthFormat = depthFormat;
@@ -1364,7 +1497,60 @@ namespace MW {
 
         CreateImageView(&viewInfo, &depthImageViews);
     }
+#if USE_VRS
+    void VulkanDevice::createShadingRateImage() {
+        swapChainShadingRateFormat = VK_FORMAT_R8_UINT;
+        VkFormatProperties formatProperties;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, swapChainShadingRateFormat, &formatProperties);
+        if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR))
+        {
+            throw std::runtime_error("Selected shading rate attachment image format does not fragment shading rate");
+        }
+        // Shading rate image size depends on shading rate texel size
+        // For each texel in the target image, there is a corresponding shading texel size width x height block in the shading rate image
+        const auto &swapchainInfo = getSwapchainInfo();
 
+        swapChainShadingRateExtent.width = static_cast<uint32_t>(ceil(swapchainInfo.extent.width /
+                                                       (float) physicalDeviceShadingRateImageProperties.maxFragmentShadingRateAttachmentTexelSize.width));
+        swapChainShadingRateExtent.height = static_cast<uint32_t>(ceil(swapchainInfo.extent.height /
+                                                        (float) physicalDeviceShadingRateImageProperties.maxFragmentShadingRateAttachmentTexelSize.height));
+
+        VkImageCreateInfo imageInfo{};
+        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.format = swapChainShadingRateFormat;
+        imageInfo.extent.width = swapChainShadingRateExtent.width;
+        imageInfo.extent.height = swapChainShadingRateExtent.height;
+        imageInfo.extent.depth = 1;
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        imageInfo.usage = VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+        CreateImageWithInfo(
+                imageInfo,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                shadingRateImages,
+                shadingRateImageMemorys);
+
+        VkImageViewCreateInfo viewInfo{};
+        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image = shadingRateImages;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = swapChainShadingRateFormat;
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        viewInfo.subresourceRange.baseMipLevel = 0;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.baseArrayLayer = 0;
+        viewInfo.subresourceRange.layerCount = 1;
+
+        CreateImageView(&viewInfo, &shadingRateImageViews);
+        updateShadingRateImage();
+    }
+#endif
     void VulkanDevice::createSyncObjects() {
         VkSemaphoreCreateInfo semaphoreInfo = {};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;

@@ -1,4 +1,4 @@
-#include "g_buffer_pass.h"
+#include "mesh_base_pass.h"
 #include "function/global/engine_global_context.h"
 #include "function/render/render_system.h"
 #include "function/render/render_camera.h"
@@ -6,44 +6,15 @@
 #include "function/render/render_model.h"
 #include "function/global/engine_global_context.h"
 #include "function/render/scene_manager.h"
-#include "cascade_shadow_map_vert.h"
-#include "cascade_shadow_map_frag.h"
-#include "scene_gbuffer_vert.h"
+#include "base_pass_ms_mesh.h"
 #include "scene_gbuffer_frag.h"
 #include "depthpass_vert.h"
-
+#if USE_MESH_SHADER
 namespace MW {
-    PassBase::Descriptor gBufferGlobalDescriptor;
-
-    void GBufferPass::initialize(const RenderPassInitInfo *info) {
-        PassBase::initialize(info);
-        const auto *_info = static_cast<const GBufferPassInitInfo *>(info);
-        fatherFramebuffer = _info->frameBuffer;
-        createUniformBuffer();
-        createDescriptorSets();
-        createPipelines();
-        createGlobalDescriptorSets();
-    }
-
-    void GBufferPass::preparePassData() {
-        gBufferCameraProject.projection = renderResource->cameraObject.projMatrix;
-        gBufferCameraProject.view = renderResource->cameraObject.viewMatrix;
-        memcpy(cameraUboBuffer.mapped, &gBufferCameraProject, sizeof(gBufferCameraProject));
-    }
-
-    void GBufferPass::createUniformBuffer() {
-        device->CreateBuffer(
-                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                cameraUboBuffer,
-                sizeof(gBufferCameraProject));
-        device->MapMemory(cameraUboBuffer);
-    }
-
-    void GBufferPass::createDescriptorSets() {
+    void MeshBaseBufferPass::createDescriptorSets() {
         descriptors.resize(1);
         std::vector<VkDescriptorSetLayoutBinding> binding = {
-                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0),
+                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_MESH_BIT_NV, 0),
         };
         VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
         descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -68,12 +39,13 @@ namespace MW {
 
         device->UpdateDescriptorSets(descriptorWrites.size(), descriptorWrites.data());
     }
-
-    void GBufferPass::createPipelines() {
+    void MeshBaseBufferPass::createPipelines() {
         pipelines.resize(1);
-        VkPushConstantRange pushConstantRange = CreatePushConstantRange(VK_SHADER_STAGE_VERTEX_BIT,
+        VkPushConstantRange pushConstantRange = CreatePushConstantRange(VK_SHADER_STAGE_MESH_BIT_NV,
                                                                         sizeof(PushConstBlock), 0);
-        std::array<VkDescriptorSetLayout, 2> layouts = {descriptors[0].layout, descriptorSetLayoutImage};
+        std::vector<VkDescriptorSetLayout> layouts = {descriptors[0].layout, descriptorSetLayoutImage,
+                                                      descriptorSetLayoutVertexStorage,
+                                                      descriptorSetLayoutMeshlet};
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = layouts.size();
@@ -82,14 +54,14 @@ namespace MW {
         pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
         device->CreatePipelineLayout(&pipelineLayoutInfo, &pipelines[0].layout);
 
-        auto vertShaderModule = device->CreateShaderModule(SCENE_GBUFFER_VERT);
+        auto meshShaderModule = device->CreateShaderModule(BASE_PASS_MS_MESH);
         auto fragShaderModule = device->CreateShaderModule(SCENE_GBUFFER_FRAG);
 
-        VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-        vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        vertShaderStageInfo.module = vertShaderModule;
-        vertShaderStageInfo.pName = "main";
+        VkPipelineShaderStageCreateInfo meshShaderStageInfo{};
+        meshShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        meshShaderStageInfo.stage = VK_SHADER_STAGE_MESH_BIT_NV;
+        meshShaderStageInfo.module = meshShaderModule;
+        meshShaderStageInfo.pName = "main";
 
         auto camera = engineGlobalContext.renderSystem->getRenderCamera();
         struct SpecializationData {
@@ -113,20 +85,7 @@ namespace MW {
         fragShaderStageInfo.pName = "main";
         fragShaderStageInfo.pSpecializationInfo = &specializationInfo;
 
-        VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-
-        std::vector<VertexComponent> components{VertexComponent::Position, VertexComponent::UV, VertexComponent::Color,
-                                                VertexComponent::Normal, VertexComponent::Tangent,
-                                                VertexComponent::MetallicFactor, VertexComponent::RoughnessFactor};
-
-//        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-//        vertexInputInfo.vertexBindingDescriptionCount = 0;
-//        vertexInputInfo.vertexAttributeDescriptionCount = 0;
-
-        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        inputAssembly.primitiveRestartEnable = VK_FALSE;
+        std::vector<VkPipelineShaderStageCreateInfo> shaderStages = {meshShaderStageInfo, fragShaderStageInfo};
 
         VkPipelineViewportStateCreateInfo viewportState{};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -176,7 +135,10 @@ namespace MW {
 
         std::vector<VkDynamicState> dynamicStates = {
                 VK_DYNAMIC_STATE_VIEWPORT,
-                VK_DYNAMIC_STATE_SCISSOR
+                VK_DYNAMIC_STATE_SCISSOR,
+#if USE_VRS
+                VK_DYNAMIC_STATE_FRAGMENT_SHADING_RATE_KHR,
+#endif
         };
         VkPipelineDynamicStateCreateInfo dynamicState{};
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -185,10 +147,10 @@ namespace MW {
 
         VkGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        pipelineInfo.stageCount = 2;
-        pipelineInfo.pStages = shaderStages;
-        pipelineInfo.pVertexInputState = gltfVertex::getPipelineVertexInputState(components);
-        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.stageCount = shaderStages.size();
+        pipelineInfo.pStages = shaderStages.data();
+        pipelineInfo.pVertexInputState = nullptr;
+        pipelineInfo.pInputAssemblyState = nullptr;
         pipelineInfo.pViewportState = &viewportState;
         pipelineInfo.pRasterizationState = &rasterizer;
         pipelineInfo.pMultisampleState = &multisampling;
@@ -203,10 +165,10 @@ namespace MW {
         device->CreateGraphicsPipelines(&pipelineInfo, &pipelines[0].pipeline);
 
         device->DestroyShaderModule(fragShaderModule);
-        device->DestroyShaderModule(vertShaderModule);
+        device->DestroyShaderModule(meshShaderModule);
     }
 
-    void GBufferPass::draw() {
+    void MeshBaseBufferPass::draw() {
         auto commandBuffer = device->getCurrentCommandBuffer();
 
         vkCmdBindDescriptorSets(device->getCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0].layout,
@@ -216,66 +178,7 @@ namespace MW {
 
         PushConstBlock pushConstant;
         engineGlobalContext.getScene()->draw(device->getCurrentCommandBuffer(), RenderFlags::BindImages,
-                                             pipelines[0].layout, 1, &pushConstant, sizeof(pushConstant));
-    }
-
-    void GBufferPass::createGlobalDescriptorSets() {
-        std::vector<VkDescriptorSetLayoutBinding> binding = {
-                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 0),
-                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
-                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 2),
-                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 3),
-                CreateDescriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, VK_SHADER_STAGE_FRAGMENT_BIT, 4),
-        };
-        VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo{};
-        descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        descriptorSetLayoutCreateInfo.pBindings = binding.data();
-        descriptorSetLayoutCreateInfo.bindingCount = binding.size();
-        device->CreateDescriptorSetLayout(&descriptorSetLayoutCreateInfo, &gBufferGlobalDescriptor.layout);
-        device->CreateDescriptorSet(1, gBufferGlobalDescriptor.layout, gBufferGlobalDescriptor.descriptorSet);
-        std::array<VkDescriptorImageInfo, main_camera_g_buffer_type_count + 1> imageInfos{};
-        std::array<VkWriteDescriptorSet, main_camera_g_buffer_type_count + 1> descriptorWrites{};
-        for (int i = 0; i < main_camera_g_buffer_type_count; ++i) {
-            imageInfos[i].sampler = device->getOrCreateDefaultSampler(VK_FILTER_NEAREST);
-            imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfos[i].imageView = fatherFramebuffer->attachments[i].view;
-            descriptorWrites[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[i].dstSet = gBufferGlobalDescriptor.descriptorSet;
-            descriptorWrites[i].dstBinding = i;
-            descriptorWrites[i].dstArrayElement = 0;
-            descriptorWrites[i].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-            descriptorWrites[i].descriptorCount = 1;
-            descriptorWrites[i].pImageInfo = &imageInfos[i];
-        }
-        //depth
-        imageInfos[main_camera_g_buffer_type_count].sampler = device->getOrCreateDefaultSampler(VK_FILTER_NEAREST);
-        imageInfos[main_camera_g_buffer_type_count].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfos[main_camera_g_buffer_type_count].imageView = device->getDepthImageInfo().depthImageView;
-        descriptorWrites[main_camera_g_buffer_type_count].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[main_camera_g_buffer_type_count].dstSet = gBufferGlobalDescriptor.descriptorSet;
-        descriptorWrites[main_camera_g_buffer_type_count].dstBinding = main_camera_g_buffer_type_count;
-        descriptorWrites[main_camera_g_buffer_type_count].dstArrayElement = 0;
-        descriptorWrites[main_camera_g_buffer_type_count].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-        descriptorWrites[main_camera_g_buffer_type_count].descriptorCount = 1;
-        descriptorWrites[main_camera_g_buffer_type_count].pImageInfo = &imageInfos[main_camera_g_buffer_type_count];
-        device->UpdateDescriptorSets(descriptorWrites.size(), descriptorWrites.data());
-    }
-
-    void GBufferPass::updateAfterFramebufferRecreate() {
-        createGlobalDescriptorSets();
-    }
-
-    void GBufferPass::clean() {
-        device->DestroyDescriptorSetLayout(gBufferGlobalDescriptor.layout);
-        for (auto &pipeline: pipelines) {
-            device->DestroyPipeline(pipeline.pipeline);
-            device->DestroyPipelineLayout(pipeline.layout);
-        }
-        for(auto&descriptor:descriptors){
-            device->DestroyDescriptorSetLayout(descriptor.layout);
-        }
-        device->unMapMemory(cameraUboBuffer);
-        device->DestroyVulkanBuffer(cameraUboBuffer);
-        PassBase::clean();
+                                             pipelines[0].layout, 1, &pushConstant, sizeof(pushConstant), true);
     }
 }
+#endif
