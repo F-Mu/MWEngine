@@ -1274,7 +1274,7 @@ namespace MW {
                             if (preMultiplyColor) {
                                 vertex.color = primitive->material.baseColorFactor * vertex.color;
                             }
-                            vertex.metallicFactor = primitive->material.metallicFactor + 0.5;
+                            vertex.metallicFactor = primitive->material.metallicFactor;
                             vertex.roughnessFactor = primitive->material.roughnessFactor;
                         }
                     }
